@@ -11,10 +11,10 @@ const LINE_RESPONSIBLES = {
   'Linha Intermediária': { commercial: 'Gustavo - Vendas - SP', factory: 'Pedro Mendes - Fábrica' },
   'Linha Pesada': { commercial: 'Victor - Vendas - SP', factory: 'Leonardo e Ana - Fábrica' }
 };
-const LINE_FACTORY_ROLES = {
-  'Linha Leve': 'Fábrica',
-  'Linha Intermediária': 'Fábrica',
-  'Linha Pesada': 'Fábrica'
+const LINE_EDITOR_ROLES = {
+  'Linha Leve': 'Editor',
+  'Linha Intermediária': 'Editor',
+  'Linha Pesada': 'Editor'
 };
 
 let visits = [];
@@ -39,9 +39,9 @@ const badge = (s) => `<span class="badge badge-${esc(s.replace(/ /g, '-'))}">${e
 /* ---------- Estado de permissão ---------- */
 const isLocalMode = () => !sb;
 const isAdmin = () => isLocalMode() || profile?.role === 'Administrador';
-const canEdit = () => isLocalMode() || (!!session && ['Fábrica', 'Administrador'].includes(profile?.role));
+const canEdit = () => isLocalMode() || (!!session && ['Editor', 'Administrador'].includes(profile?.role));
 const canReview = (visit) => isLocalMode() || profile?.role === 'Administrador'
-  || (profile?.role === LINE_FACTORY_ROLES[visit?.line] && profile?.line === visit?.line
+  || (profile?.role === LINE_EDITOR_ROLES[visit?.line] && profile?.line === visit?.line
     && visit?.requestedByEmail !== profile?.email);
 const canManageUsers = () => !!sb && profile?.role === 'Administrador';
 
@@ -60,8 +60,8 @@ function applyRole() {
   $('localBanner').classList.toggle('hidden', !!sb);
   $('authBtn').disabled = !!session && !profile;
   $('openAiImportBtn').classList.toggle('hidden', !canEdit());
-  $('vLine').disabled = !!sb && profile?.role === 'Fábrica';
-  if (profile?.role === 'Fábrica' && profile.line) {
+  $('vLine').disabled = !!sb && profile?.role === 'Editor';
+  if (profile?.role === 'Editor' && profile.line) {
     $('vLine').value = profile.line;
     updateLineResponsibles();
   }
@@ -328,6 +328,8 @@ function openVisitModal(id) {
   $('vCompany').value = v.company || '';
   $('vPhone').value = v.phone || '';
   $('vLine').value = v.line || '';
+  if (profile?.role === 'Editor' && profile.line) $('vLine').value = profile.line;
+  $('vLine').disabled = !!sb && profile?.role === 'Editor';
   updateLineResponsibles();
   $('vMachine').value = v.machineRequested || '';
   $('vMaterial').value = v.material || '';
@@ -351,7 +353,7 @@ function updateLineResponsibles() {
 }
 
 async function extractVisitWithAi(sourceText, pdfFile, signal) {
-  if (!sb || !session || !profile || !['Fábrica', 'Administrador'].includes(profile.role)) {
+  if (!sb || !session || !profile || !['Editor', 'Administrador'].includes(profile.role)) {
     throw new Error('Entre no app pelo Supabase com um perfil da produção para usar a IA.');
   }
   const body = { text: sourceText };
@@ -386,7 +388,8 @@ function applyAiVisitFields(data) {
     vNotes: data.notes
   };
   for (const [id, value] of Object.entries(fields)) if (value) $(id).value = value;
-  if (data.line && [...$('vLine').options].some((option) => option.value === data.line)) $('vLine').value = data.line;
+  if (profile?.role === 'Editor' && profile.line) $('vLine').value = profile.line;
+  else if (data.line && [...$('vLine').options].some((option) => option.value === data.line)) $('vLine').value = data.line;
   updateLineResponsibles();
   if (data.reason && [...$('vReason').options].some((option) => option.value === data.reason)) $('vReason').value = data.reason;
 }
@@ -563,9 +566,9 @@ function renderUsers() {
 }
 
 function updateUserRoleFields() {
-  const isFactory = $('uRole').value === 'Fábrica';
-  $('uLineGroup').classList.toggle('hidden', !isFactory);
-  $('uLine').required = isFactory;
+  const isEditor = $('uRole').value === 'Editor';
+  $('uLineGroup').classList.toggle('hidden', !isEditor);
+  $('uLine').required = isEditor;
 }
 
 function openUserModal(email = '') {
@@ -590,11 +593,11 @@ async function submitUser(e) {
   if (!canManageUsers()) return;
   const email = $('uEmail').value.trim().toLowerCase();
   const role = $('uRole').value;
-  const line = role === 'Fábrica' ? $('uLine').value : null;
+  const line = role === 'Editor' ? $('uLine').value : null;
   const password = $('uPassword').value;
   $('userError').textContent = '';
   if (password.length < 12) { $('userError').textContent = 'Use uma senha com pelo menos 12 caracteres.'; return; }
-  if (role === 'Fábrica' && !line) { $('userError').textContent = 'Selecione a linha de responsabilidade.'; return; }
+  if (role === 'Editor' && !line) { $('userError').textContent = 'Selecione a linha de responsabilidade.'; return; }
   $('saveUserBtn').disabled = true;
   try {
     const { data, error } = await sb.functions.invoke('visits-admin-users', {

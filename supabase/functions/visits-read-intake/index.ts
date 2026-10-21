@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
   if (authError || !email || authData.user?.is_anonymous) return respond({ error: 'Sessão inválida.' }, 401);
   const { data: profile, error: profileError } = await admin.from('visits_user_roles')
     .select('role').eq('email', email).maybeSingle();
-  if (profileError || !['Fábrica', 'Administrador'].includes(profile?.role || '')) {
+  if (profileError || !['Editor', 'Administrador'].includes(profile?.role || '')) {
     return respond({ error: 'Apenas usuários da produção podem usar esta função.' }, 403);
   }
 

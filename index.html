@@ -296,7 +296,7 @@
       <h2 id="userModalTitle">Adicionar usuário</h2>
       <div class="form-group"><label for="uEmail">E-mail corporativo *</label><input type="email" id="uEmail" class="input-delta" required autocomplete="off"></div>
       <div class="form-group"><label for="uPassword">Senha inicial *</label><input type="password" id="uPassword" class="input-delta" required minlength="12" autocomplete="new-password"><span class="hint">Use pelo menos 12 caracteres. A senha não será armazenada neste app.</span></div>
-      <div class="form-group"><label for="uRole">Perfil *</label><select id="uRole" class="input-delta" required><option>Fábrica</option><option>Administrador</option></select></div>
+      <div class="form-group"><label for="uRole">Perfil *</label><select id="uRole" class="input-delta" required><option>Editor</option><option>Administrador</option></select><span class="hint">O Editor acessa somente a linha fabril atribuída.</span></div>
       <div class="form-group hidden" id="uLineGroup"><label for="uLine">Linha de responsabilidade *</label><select id="uLine" class="input-delta"><option value="">Selecione</option><option>Linha Leve</option><option>Linha Intermediária</option><option>Linha Pesada</option></select></div>
       <p id="userError" class="form-error"></p>
       <div class="modal-actions"><button type="button" class="btn-delta btn-slate" data-close="userModal">Cancelar</button><button type="submit" class="btn-delta btn-indigo" id="saveUserBtn">Criar acesso</button></div>

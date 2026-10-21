@@ -9,7 +9,7 @@ const respond = (body: unknown, status = 200) => new Response(JSON.stringify(bod
   status,
   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
 });
-const validRoles = ['Administrador', 'Fábrica'];
+const validRoles = ['Administrador', 'Editor'];
 const validLines = ['Linha Leve', 'Linha Intermediária', 'Linha Pesada'];
 
 Deno.serve(async (request) => {
@@ -49,13 +49,13 @@ Deno.serve(async (request) => {
   if (body.action === 'upsert') {
     const password = String(body.password || '');
     const role = String(body.role || '');
-    const line = role === 'Fábrica' ? String(body.line || '') : null;
+    const line = role === 'Editor' ? String(body.line || '') : null;
     if (password.length < 12 || new TextEncoder().encode(password).length > 72) {
       return respond({ error: 'A senha deve ter entre 12 e 72 bytes.' }, 400);
     }
     if (!validRoles.includes(role)) return respond({ error: 'Perfil inválido.' }, 400);
-    if (role === 'Fábrica' && !validLines.includes(line || '')) return respond({ error: 'Selecione uma linha fabril válida.' }, 400);
-    if (role !== 'Fábrica' && body.line) return respond({ error: 'Somente perfis de Fábrica recebem uma linha.' }, 400);
+    if (role === 'Editor' && !validLines.includes(line || '')) return respond({ error: 'Selecione uma linha fabril válida.' }, 400);
+    if (role !== 'Editor' && body.line) return respond({ error: 'Somente perfis Editor recebem uma linha.' }, 400);
     if (role === 'Administrador' && !isPrimaryAdmin) return respond({ error: 'Somente o administrador principal pode criar ou promover administradores.' }, 403);
     if (email === primaryAdmin && role !== 'Administrador') return respond({ error: 'O administrador principal não pode perder seu perfil.' }, 400);
 

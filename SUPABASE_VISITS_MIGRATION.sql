@@ -6,13 +6,24 @@ begin;
 
 create table if not exists public.visits_user_roles (
   email text primary key,
-  role text not null check (role in ('Administrador', 'Fábrica')),
+  role text not null check (role in ('Administrador', 'Editor')),
   line text,
   created_at timestamptz not null default now(),
-  constraint visits_factory_requires_line check (
-    (role = 'Fábrica' and line in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada'))
-    or (role <> 'Fábrica' and line is null)
+  constraint visits_editor_requires_line check (
+    (role = 'Editor' and line in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada'))
+    or (role <> 'Editor' and line is null)
   )
+);
+
+alter table public.visits_user_roles drop constraint if exists visits_user_roles_role_check;
+alter table public.visits_user_roles drop constraint if exists visits_factory_requires_line;
+alter table public.visits_user_roles drop constraint if exists visits_editor_requires_line;
+update public.visits_user_roles set role = 'Editor' where role = 'Fábrica';
+alter table public.visits_user_roles add constraint visits_user_roles_role_check
+  check (role in ('Administrador', 'Editor'));
+alter table public.visits_user_roles add constraint visits_editor_requires_line check (
+  (role = 'Editor' and line in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada'))
+  or (role <> 'Editor' and line is null)
 );
 
 alter table public.visits_user_roles enable row level security;
@@ -57,23 +68,23 @@ drop policy if exists "visits admin delete" on public.visits;
 create policy "visits authenticated read" on public.visits
   for select to authenticated using (
     public.visits_has_role('Administrador')
-    or public.visits_has_role('Fábrica', data->>'line')
+    or public.visits_has_role('Editor', data->>'line')
   );
 
 create policy "visits request insert" on public.visits
   for insert to authenticated
-  with check (public.visits_has_role('Administrador') or public.visits_has_role('Fábrica'));
+  with check (public.visits_has_role('Administrador') or public.visits_has_role('Editor'));
 
 create policy "visits controlled update" on public.visits
   for update to authenticated
   using (
     public.visits_has_role('Administrador')
-    or (public.visits_has_role('Fábrica', data->>'line')
+    or (public.visits_has_role('Editor', data->>'line')
       and coalesce(data->>'approvalStatus', 'Aprovada') in ('Pendente', 'Aprovada'))
   )
   with check (
     public.visits_has_role('Administrador')
-    or public.visits_has_role('Fábrica', data->>'line')
+    or public.visits_has_role('Editor', data->>'line')
   );
 
 create policy "visits admin delete" on public.visits
@@ -94,11 +105,11 @@ begin
   if actor_email = '' then raise exception 'Autenticação necessária.'; end if;
 
   if tg_op = 'INSERT' then
-    if not (public.visits_has_role('Administrador') or public.visits_has_role('Fábrica')) then
+    if not (public.visits_has_role('Administrador') or public.visits_has_role('Editor')) then
       raise exception 'Somente a equipe de produção pode registrar pedidos.';
     end if;
-    if public.visits_has_role('Fábrica') and not public.visits_has_role('Fábrica', new.data->>'line') then
-      raise exception 'Você só pode registrar pedidos para a sua linha fabril.';
+    if public.visits_has_role('Editor') and not public.visits_has_role('Editor', new.data->>'line') then
+      raise exception 'Você só pode registrar pedidos para a sua linha.';
     end if;
     if new.data->>'line' not in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada')
       or nullif(new.data->>'machineRequested', '') is null
@@ -125,7 +136,7 @@ begin
   old_approval := coalesce(old.data->>'approvalStatus', 'Aprovada');
   new_approval := coalesce(new.data->>'approvalStatus', 'Aprovada');
 
-  if public.visits_has_role('Fábrica', old.data->>'line') then
+  if public.visits_has_role('Editor', old.data->>'line') then
     if old_approval = 'Pendente' and lower(old.data->>'requestedByEmail') = actor_email then
       if (new.data - array['client','company','phone','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt'])
         <> (old.data - array['client','company','phone','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt']) then
@@ -191,7 +202,7 @@ create policy "visits ai upload own pdf" on storage.objects
     bucket_id = 'visits-ai-inbox'
     and (storage.foldername(name))[1] = 'ai-imports'
     and lower((storage.foldername(name))[2]) = lower(auth.jwt()->>'email')
-    and (public.visits_has_role('Administrador') or public.visits_has_role('Fábrica'))
+    and (public.visits_has_role('Administrador') or public.visits_has_role('Editor'))
   );
 
 drop policy if exists "visits ai delete own pdf" on storage.objects;
@@ -201,7 +212,7 @@ create policy "visits ai delete own pdf" on storage.objects
     bucket_id = 'visits-ai-inbox'
     and (storage.foldername(name))[1] = 'ai-imports'
     and lower((storage.foldername(name))[2]) = lower(auth.jwt()->>'email')
-    and (public.visits_has_role('Administrador') or public.visits_has_role('Fábrica'))
+    and (public.visits_has_role('Administrador') or public.visits_has_role('Editor'))
   );
 
 -- Bootstrap: execute após criar a conta no Authentication, substituindo o e-mail.
