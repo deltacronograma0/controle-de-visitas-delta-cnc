@@ -144,8 +144,13 @@ async function loadProfile(user) {
 async function pullRemote() {
   const { data, error } = await sb.from('visits').select('id,data');
   if (error) {
-    setSync(false, 'Sem conexão');
-    loadLocal();
+    if (!session) {
+      visits = [];
+      setSync(false, 'Entre para sincronizar');
+    } else {
+      setSync(false, 'Sem conexão');
+      loadLocal();
+    }
   } else {
     visits = data.map((r) => ({ ...r.data, id: r.id }));
     saveLocal();
