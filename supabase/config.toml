@@ -1,0 +1,7 @@
+project_id = "visitas-delta-cnc"
+
+[functions.visits-admin-users]
+verify_jwt = true
+
+[functions.visits-read-intake]
+verify_jwt = true

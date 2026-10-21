@@ -1,0 +1,13 @@
+{
+  "name": "DELTA CNC — Controle de Visitas",
+  "short_name": "Visitas DELTA",
+  "description": "Controle de visitas de clientes à DELTA CNC.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#0b1020",
+  "orientation": "any",
+  "icons": [
+    { "src": "logo.png", "sizes": "any", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

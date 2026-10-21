@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Visitas DELTA">
+  <meta name="description" content="DELTA CNC — Controle de visitas de clientes à empresa.">
+  <title>DELTA CNC — Controle de Visitas</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="styles.css?v=6">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="brandSplash" class="brand-splash" aria-label="A carregar">
+    <img src="logo.png" alt="Delta CNC">
+    <strong>DELTA CNC</strong>
+    <span>Controle de Visitas</span>
+  </div>
+  <button id="installAppBtn" class="install-app-btn hidden" type="button">⬇ Instalar app</button>
+
+  <div class="app-shell">
+    <div class="workspace">
+      <header class="delta-header">
+        <div class="header-content">
+          <div class="brand-group">
+            <img class="header-brand-logo" src="logo.png" alt="Logo Delta CNC" onerror="this.style.display='none';">
+            <div class="brand-titles">
+              <h1>DELTA CNC</h1>
+              <p>Controle de Visitas</p>
+              <span class="header-reference">Mês de referência: <strong id="headerReferenceMonth"></strong></span>
+            </div>
+          </div>
+
+          <div class="header-meta">
+            <div class="meta-tag meta-status" id="refMonthBadge">
+              <span style="color:#818cf8;">📅</span> <strong id="lblRefMonth"></strong>
+            </div>
+            <div id="syncIndicator" class="sync-indicator sync-error" title="Modo local">
+              <span class="sync-indicator-dot"></span>
+              <span id="syncLabel">Modo local</span>
+            </div>
+            <div class="meta-tag meta-status" id="clockEl">⏱️ 00:00:00</div>
+            <div class="meta-tag meta-status user-status">
+              👤 <span id="currentUserLabel" style="font-weight:600; color: #c7d2fe;">Visitante</span>
+            </div>
+            <button id="authBtn" class="btn-delta btn-slate btn-sm" type="button">Entrar</button>
+          </div>
+        </div>
+        <nav class="top-navigation" aria-label="Navegação principal">
+          <button class="sidebar-link active" data-tab="visitas" type="button"><span>📋</span> Visitas</button>
+          <button class="sidebar-link" data-tab="agenda" type="button"><span>📅</span> Agenda</button>
+          <button class="sidebar-link" data-tab="dashboard" type="button"><span>📊</span> Dashboard</button>
+          <button class="sidebar-link admin-only hidden" data-tab="usuarios" type="button"><span>👥</span> Acessos</button>
+        </nav>
+      </header>
+
+      <div id="readonlyBanner" class="gemini-alert hidden">
+        <span>🔒 <strong>Somente leitura:</strong> entre com sua conta para registrar ou alterar visitas.</span>
+      </div>
+      <div id="localBanner" class="gemini-alert hidden">
+        <span>⚠️ <strong>Modo local:</strong> conecte o Supabase para compartilhar as visitas entre dispositivos.</span>
+        <button class="btn-delta btn-amber btn-sm" type="button" id="configBtn">Conectar Supabase</button>
+      </div>
+
+      <main class="delta-main">
+        <!-- VISITAS -->
+        <section id="tab-visitas">
+          <div class="filters-box">
+            <div class="form-group">
+              <label for="fPeriod">Período (Mês / Ano)</label>
+              <input type="month" id="fPeriod" class="input-delta">
+            </div>
+            <div class="form-group">
+              <label for="fSearch">Pesquisar cliente / empresa / anfitrião</label>
+              <input type="text" id="fSearch" class="input-delta" placeholder="Ex.: João, Metalúrgica...">
+            </div>
+            <div class="form-group">
+              <label for="fStatus">Estado da visita</label>
+              <select id="fStatus" class="input-delta">
+                <option value="">Todos</option>
+                <option>Agendada</option>
+                <option>Em andamento</option>
+                <option>Concluída</option>
+                <option>Cancelada</option>
+                <option>Não compareceu</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="fReason">Motivo</label>
+              <select id="fReason" class="input-delta"><option value="">Todos</option></select>
+            </div>
+            <div class="form-group">
+              <label for="fLine">Linha</label>
+              <select id="fLine" class="input-delta">
+                <option value="">Todas</option>
+                <option>Linha Leve</option>
+                <option>Linha Intermediária</option>
+                <option>Linha Pesada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="fApproval">Análise da fábrica</label>
+              <select id="fApproval" class="input-delta">
+                <option value="">Todas</option>
+                <option>Pendente</option>
+                <option>Aprovada</option>
+                <option>Recusada</option>
+                <option>Nova data sugerida</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <button class="btn-delta btn-slate" id="clearFiltersBtn" type="button" style="margin-top:auto;width:100%;">🧹 Limpar Filtros</button>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <div class="action-group">
+              <button class="btn-delta btn-indigo editor-only" id="newVisitBtn" type="button">➕ Novo pedido interno</button>
+              <button class="btn-delta btn-emerald editor-only" id="openAiImportBtn" type="button">✨ Preencher com IA</button>
+            </div>
+            <div class="action-group">
+              <button class="btn-delta btn-slate" id="exportBtn" type="button">📄 Exportar CSV</button>
+            </div>
+          </div>
+
+          <div class="summary-cards" id="summaryCards"></div>
+
+          <div class="table-wrap">
+            <table class="table-delta">
+              <thead>
+                <tr>
+                  <th>Data / Hora</th>
+                  <th>Cliente</th>
+                  <th>Linha</th>
+                  <th>Empresa</th>
+                  <th>Motivo</th>
+                  <th>Anfitrião</th>
+                  <th>Comercial</th>
+                  <th>Fabril</th>
+                  <th>Entrada</th>
+                  <th>Saída</th>
+                  <th>Estado</th>
+                  <th>Análise da fábrica</th>
+                  <th class="editor-only">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="visitsBody"></tbody>
+            </table>
+            <p id="emptyMsg" class="empty-msg hidden">Nenhuma visita encontrada.</p>
+          </div>
+        </section>
+
+        <!-- AGENDA -->
+        <section id="tab-agenda" class="hidden">
+          <h2 class="section-title">Hoje</h2>
+          <div id="agendaToday" class="agenda-list"></div>
+          <h2 class="section-title">Próximas visitas</h2>
+          <div id="agendaUpcoming" class="agenda-list"></div>
+        </section>
+
+        <!-- DASHBOARD -->
+        <section id="tab-dashboard" class="hidden">
+          <div class="filters-box">
+            <div class="form-group">
+              <label for="dPeriod">Período (Mês / Ano)</label>
+              <input type="month" id="dPeriod" class="input-delta">
+            </div>
+          </div>
+          <div class="summary-cards" id="dashCards"></div>
+          <div class="dash-grid">
+            <div class="card"><h3>Visitas por motivo</h3><div id="chartReason" class="bars"></div></div>
+            <div class="card"><h3>Visitas por anfitrião</h3><div id="chartHost" class="bars"></div></div>
+            <div class="card"><h3>Clientes que mais visitam</h3><div id="chartClient" class="bars"></div></div>
+            <div class="card"><h3>Visitas por dia da semana</h3><div id="chartWeekday" class="bars"></div></div>
+          </div>
+        </section>
+
+        <section id="tab-usuarios" class="hidden admin-only">
+          <div class="action-bar">
+            <div>
+              <h2 class="section-title">Acessos da equipe</h2>
+              <p class="hint">Contas individuais para comercial, fábrica e administração.</p>
+            </div>
+            <button class="btn-delta btn-indigo" id="newUserBtn" type="button">➕ Adicionar usuário</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table-delta">
+              <thead><tr><th>E-mail</th><th>Perfil</th><th>Linha</th><th>Ações</th></tr></thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+            <p id="usersEmpty" class="empty-msg hidden">Nenhum usuário cadastrado.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal visita -->
+  <div id="visitModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal" id="visitForm">
+      <h2 id="visitModalTitle">Novo pedido interno</h2>
+      <p class="hint">Revise as informações recebidas do comercial e complete o que estiver faltando antes da validação fabril.</p>
+      <div class="form-grid">
+        <div class="form-group"><label for="vClient">Visitante (nome) *</label><input id="vClient" class="input-delta" required maxlength="120"></div>
+        <div class="form-group"><label for="vCompany">Empresa do cliente *</label><input id="vCompany" class="input-delta" required maxlength="120"></div>
+        <div class="form-group"><label for="vPhone">Telefone / e-mail</label><input id="vPhone" class="input-delta" maxlength="120"></div>
+        <div class="form-group">
+          <label for="vLine">Linha *</label>
+          <select id="vLine" class="input-delta" required>
+            <option value="">Selecione a linha</option>
+            <option>Linha Leve</option>
+            <option>Linha Intermediária</option>
+            <option>Linha Pesada</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="vCommercial">Responsável comercial</label><input id="vCommercial" class="input-delta" readonly></div>
+        <div class="form-group"><label for="vFactory">Responsável fabril</label><input id="vFactory" class="input-delta" readonly></div>
+        <div class="form-group"><label for="vMachine">Máquina que deseja conhecer *</label><input id="vMachine" class="input-delta" required maxlength="160" placeholder="Ex.: Router CNC 1530"></div>
+        <div class="form-group"><label for="vMaterial">Material que pretende cortar *</label><input id="vMaterial" class="input-delta" required maxlength="160" placeholder="Ex.: MDF, acrílico, aço carbono"></div>
+        <div class="form-group"><label for="vThickness">Espessura / dimensões</label><input id="vThickness" class="input-delta" maxlength="120" placeholder="Ex.: chapa de 3 mm"></div>
+        <div class="form-group"><label for="vHost">Anfitrião ou contato na DELTA</label><input id="vHost" class="input-delta" maxlength="120"></div>
+        <div class="form-group"><label for="vDate">Data *</label><input type="date" id="vDate" class="input-delta" required></div>
+        <div class="form-group"><label for="vTime">Hora prevista *</label><input type="time" id="vTime" class="input-delta" required></div>
+        <div class="form-group">
+          <label for="vReason">Motivo *</label>
+          <select id="vReason" class="input-delta" required>
+            <option>Reunião comercial</option>
+            <option>Visita técnica</option>
+            <option>Entrega / retirada</option>
+            <option>Negociação</option>
+            <option>Treinamento</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="visitExecutionStatusGroup">
+          <label for="vStatus">Estado</label>
+          <select id="vStatus" class="input-delta">
+            <option>Agendada</option>
+            <option>Em andamento</option>
+            <option>Concluída</option>
+            <option>Cancelada</option>
+            <option>Não compareceu</option>
+          </select>
+        </div>
+        <div class="form-group full"><label for="vNotes">Observações recebidas</label><textarea id="vNotes" class="input-delta" rows="3" maxlength="1000" placeholder="Informações adicionais enviadas pelo comercial"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-delta btn-slate" data-close="visitModal">Cancelar</button>
+        <button type="submit" class="btn-delta btn-indigo" id="saveVisitBtn">Enviar solicitação</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="aiImportModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <section class="modal ai-import-modal">
+      <h2>Importar informações do comercial</h2>
+      <p class="hint">Cole a mensagem recebida ou anexe um PDF. A IA organiza os dados para a produção revisar antes de preencher o cadastro. O serviço só funciona após a configuração segura do Supabase.</p>
+      <div class="form-group">
+        <label for="aiSourceText">Texto recebido</label>
+        <textarea id="aiSourceText" class="input-delta" rows="7" maxlength="20000" placeholder="Cole aqui a mensagem ou o padrão enviado pelo comercial"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="aiSourcePdf">Ou selecione um PDF (até 4 MB)</label>
+        <input type="file" id="aiSourcePdf" class="input-delta" accept="application/pdf,.pdf">
+        <span id="aiPdfName" class="hint">O PDF será enviado ao Gemini pela função segura do Supabase.</span>
+      </div>
+      <p id="aiImportStatus" class="form-error" role="status"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-delta btn-slate" data-close="aiImportModal">Cancelar</button>
+        <button type="button" class="btn-delta btn-emerald" id="parseWithAiBtn">✨ Ler informações</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="reviewModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal modal-sm" id="reviewForm">
+      <h2 id="reviewTitle">Analisar solicitação</h2>
+      <p id="reviewSummary" class="hint"></p>
+      <div class="form-group"><label for="reviewDecision">Decisão</label><select id="reviewDecision" class="input-delta" required><option value="Aprovada">Aprovar visita</option><option value="Recusada">Recusar visita</option><option value="Nova data sugerida">Sugerir nova data</option></select></div>
+      <div class="form-group hidden" id="reviewSuggestedDateGroup"><label for="reviewSuggestedDate">Data sugerida *</label><input type="date" id="reviewSuggestedDate" class="input-delta"></div>
+      <div class="form-group hidden" id="reviewSuggestedTimeGroup"><label for="reviewSuggestedTime">Horário sugerido *</label><input type="time" id="reviewSuggestedTime" class="input-delta"></div>
+      <div class="form-group hidden" id="reviewReasonGroup"><label for="reviewReason">Motivo da recusa *</label><textarea id="reviewReason" class="input-delta" rows="3" maxlength="500"></textarea></div>
+      <div class="form-group" id="reviewNoteGroup"><label for="reviewNote">Observação para o comercial</label><textarea id="reviewNote" class="input-delta" rows="3" maxlength="1000"></textarea></div>
+      <div class="modal-actions"><button type="button" class="btn-delta btn-slate" data-close="reviewModal">Cancelar</button><button type="submit" class="btn-delta btn-indigo">Salvar decisão</button></div>
+    </form>
+  </div>
+
+  <div id="userModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal modal-sm" id="userForm">
+      <h2 id="userModalTitle">Adicionar usuário</h2>
+      <div class="form-group"><label for="uEmail">E-mail corporativo *</label><input type="email" id="uEmail" class="input-delta" required autocomplete="off"></div>
+      <div class="form-group"><label for="uPassword">Senha inicial *</label><input type="password" id="uPassword" class="input-delta" required minlength="12" autocomplete="new-password"><span class="hint">Use pelo menos 12 caracteres. A senha não será armazenada neste app.</span></div>
+      <div class="form-group"><label for="uRole">Perfil *</label><select id="uRole" class="input-delta" required><option>Fábrica</option><option>Administrador</option></select></div>
+      <div class="form-group hidden" id="uLineGroup"><label for="uLine">Linha de responsabilidade *</label><select id="uLine" class="input-delta"><option value="">Selecione</option><option>Linha Leve</option><option>Linha Intermediária</option><option>Linha Pesada</option></select></div>
+      <p id="userError" class="form-error"></p>
+      <div class="modal-actions"><button type="button" class="btn-delta btn-slate" data-close="userModal">Cancelar</button><button type="submit" class="btn-delta btn-indigo" id="saveUserBtn">Criar acesso</button></div>
+    </form>
+  </div>
+
+  <!-- Modal login -->
+  <div id="authModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal modal-sm" id="authForm">
+      <h2>Entrar</h2>
+      <div class="form-group"><label for="aEmail">E-mail</label><input type="email" id="aEmail" class="input-delta" required autocomplete="username"></div>
+      <div class="form-group"><label for="aPass">Senha</label><input type="password" id="aPass" class="input-delta" required autocomplete="current-password"></div>
+      <p id="authError" class="form-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn-delta btn-slate" data-close="authModal">Cancelar</button>
+        <button type="submit" class="btn-delta btn-indigo">Entrar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal config -->
+  <div id="configModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal modal-sm" id="configForm">
+      <h2>Conexão Supabase</h2>
+      <div class="form-group"><label for="cUrl">Project URL</label><input type="url" id="cUrl" class="input-delta" placeholder="https://xxxx.supabase.co"></div>
+      <div class="form-group"><label for="cKey">Anon public key</label><input id="cKey" class="input-delta" autocomplete="off"></div>
+      <p class="hint">Deixe vazio e salve para voltar ao modo local (dados só neste navegador).</p>
+      <div class="modal-actions">
+        <button type="button" class="btn-delta btn-slate" data-close="configModal">Cancelar</button>
+        <button type="submit" class="btn-delta btn-indigo">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js?v=6"></script>
+</body>
+</html>
