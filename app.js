@@ -5,6 +5,10 @@ const STORAGE = {
   URL: 'visitas.supabaseUrl',
   KEY: 'visitas.supabaseKey'
 };
+const DEFAULT_SUPABASE = {
+  URL: 'https://lzdsffycxtwmgeycsbbj.supabase.co',
+  KEY: 'sb_publishable_En3Z1O9De545ef8379n2hg_xQR_cimh'
+};
 
 const LINE_RESPONSIBLES = {
   'Linha Leve': { commercial: 'Michel - Vendas - SP', factory: 'André - Fábrica' },
@@ -99,8 +103,8 @@ function loadLocal() {
 }
 
 async function initSupabase() {
-  const url = localStorage.getItem(STORAGE.URL);
-  const key = localStorage.getItem(STORAGE.KEY);
+  const url = localStorage.getItem(STORAGE.URL) || DEFAULT_SUPABASE.URL;
+  const key = localStorage.getItem(STORAGE.KEY) || DEFAULT_SUPABASE.KEY;
   sb = null;
   session = null;
   if (!url || !key || !window.supabase?.createClient) {
@@ -671,8 +675,8 @@ function bindEvents() {
   $('authForm').addEventListener('submit', submitAuth);
   $('configForm').addEventListener('submit', submitConfig);
   $('configBtn').addEventListener('click', () => {
-    $('cUrl').value = localStorage.getItem(STORAGE.URL) || '';
-    $('cKey').value = localStorage.getItem(STORAGE.KEY) || '';
+    $('cUrl').value = localStorage.getItem(STORAGE.URL) || DEFAULT_SUPABASE.URL;
+    $('cKey').value = localStorage.getItem(STORAGE.KEY) || DEFAULT_SUPABASE.KEY;
     openModal('configModal');
   });
   $('authBtn').addEventListener('click', async () => {
