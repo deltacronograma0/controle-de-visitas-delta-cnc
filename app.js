@@ -252,7 +252,6 @@ function actionButtons(v) {
   const approval = requestStatus(v);
   if (approval === 'Pendente' && canReview(v)) b.push(`<button class="btn-delta btn-indigo btn-sm" data-act="review" data-id="${esc(v.id)}">Analisar</button>`);
   if (canEditVisit(v) || (!session && sb)) b.push(`<button class="btn-delta btn-slate btn-sm" data-act="edit" data-id="${esc(v.id)}">${canEditVisit(v) ? 'Editar teste' : 'Entrar para editar'}</button>`);
-  if (approval === 'Aprovada' && isActiveTest(v)) b.push(`<button class="btn-delta btn-slate btn-sm" data-act="calendar" data-id="${esc(v.id)}">Adicionar ao calendário</button>`);
   if (approval === 'Aprovada' && isActiveTest(v) && canManageTestWork(v)) b.push(`<button class="btn-delta btn-emerald btn-sm" data-act="work" data-id="${esc(v.id)}">Atualizar teste</button>`);
   if (isAdmin()) b.push(`<button class="btn-delta btn-rose btn-sm" data-act="del" data-id="${esc(v.id)}" aria-label="Excluir solicitação">Excluir</button>`);
   return `<div class="row-actions">${b.join('')}</div>`;
@@ -297,7 +296,7 @@ function agendaItem(v) {
     ${testType(v) === 'Demonstração com cliente' ? `<p>Atendimento ao cliente: ${esc(v.host || 'A definir')}</p>` : ''}
     <p>Acompanhamento da produção: ${esc(v.factoryResponsible || 'A definir')} · ${badge(v.status)}</p>
     ${requestStatus(v) === 'Nova data sugerida' && v.suggestedDate && v.suggestedTime
-      ? `<div class="schedule-comparison"><p>Agendamento original: <strong>${esc(fmtDate(v.date))} às ${esc(v.time)}</strong></p><p>Nova sugestão da fábrica: <strong>${esc(fmtDate(v.suggestedDate))} às ${esc(v.suggestedTime)}</strong></p></div>`
+      ? `<div class="schedule-comparison"><p class="schedule-original">Agendamento original <strong>${esc(fmtDate(v.date))} às ${esc(v.time)}</strong></p><p class="schedule-suggested">Proposta da fábrica <strong>${esc(fmtDate(v.suggestedDate))} às ${esc(v.suggestedTime)}</strong></p></div>`
       : `<p>Data e horário: ${esc(fmtDate(v.date))} às ${esc(v.time)}</p>`}
     ${v.status === 'Preparação' ? `<p class="attention-note">Preparação em aberto: ${(v.preparationChecklist || []).length} de 5 itens concluídos</p>` : ''}
     ${v.testPreparationNotes ? `<p>Preparação: ${esc(v.testPreparationNotes)}</p>` : ''}
@@ -689,6 +688,7 @@ async function submitReview(e) {
   e.preventDefault();
   const visit = visits.find((item) => item.id === reviewingId);
   if (!visit || !canReview(visit) || requestStatus(visit) !== 'Pendente') return;
+  const previous = { ...visit };
   const decision = $('reviewDecision').value;
   visit.approvalStatus = decision;
   visit.approvalReason = decision === 'Recusada' ? $('reviewReason').value.trim() : '';
@@ -700,14 +700,25 @@ async function submitReview(e) {
   visit.reviewedAt = new Date().toISOString();
   closeModal('reviewModal');
   renderAll();
-  await persist(visit);
+  const saved = await persist(visit);
+  if (!saved) {
+    Object.assign(visit, previous);
+    renderAll();
+    return;
+  }
+  if (decision === 'Aprovada') {
+    const [year, month] = visit.date.split('-').map(Number);
+    calendarMonth = new Date(year, month - 1, 1);
+    calendarSelectedDate = visit.date;
+    renderMonthCalendar();
+    switchTab('calendario');
+  }
   toast('Decisão da fábrica registrada.');
 }
 
 async function rowAction(act, id) {
   const v = visits.find((x) => x.id === id);
   if (!v) return;
-  if (act === 'calendar') return downloadVisitCalendar(v);
   if (act === 'review') return openReviewModal(id);
   if (act === 'work') return openTestWorkModal(id);
   if (act === 'edit') return openVisitModal(id);
@@ -723,52 +734,6 @@ async function rowAction(act, id) {
   if (act === 'out') { v.status = 'Concluída'; v.checkOut = nowTime(); }
   renderAll();
   await persist(v);
-}
-
-function icsEscape(value) {
-  return String(value || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
-}
-
-function downloadVisitCalendar(visit) {
-  if (!visit.date || !visit.time) {
-    toast('Esta visita precisa de data e horário para criar o lembrete.');
-    return;
-  }
-  const start = new Date(`${visit.date}T${visit.time}:00`);
-  if (Number.isNaN(start.getTime())) {
-    toast('Não foi possível ler a data e o horário da visita.');
-    return;
-  }
-  const end = new Date(start.getTime() + 60 * 60 * 1000);
-  const toIcsDate = (date) => `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const title = `${testType(visit) === 'Interno' ? 'Teste interno' : 'Demonstração DELTA CNC'}: ${visit.client || visit.company || visit.machineRequested || 'Teste'}`;
-  const details = [
-    `Tipo: ${testType(visit)}`,
-    `Empresa: ${visit.company || '—'}`,
-    `Linha: ${visit.line || '—'}`,
-    `Máquina: ${visit.machineRequested || '—'}`,
-    `Material: ${visit.material || '—'}`,
-    `Vendedora: ${visit.commercialResponsible || '—'}`,
-    `Quem atenderá: ${visit.host || '—'}`,
-    `Acompanhamento da produção: ${visit.factoryResponsible || '—'}`,
-    `Objetivo: ${visit.reason || '—'}`
-  ].join('\\n');
-  const ics = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DELTA CNC//Controle de Visitas//PT-BR', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
-    `UID:${icsEscape(visit.id)}@visitas.delta-cnc`, `DTSTAMP:${stamp}`, `DTSTART:${toIcsDate(start)}`, `DTEND:${toIcsDate(end)}`,
-    `SUMMARY:${icsEscape(title)}`, `DESCRIPTION:${icsEscape(details)}`, 'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY',
-    `DESCRIPTION:${icsEscape(`A visita DELTA CNC de ${visit.client || visit.company || 'cliente'} será amanhã.`)}`, 'END:VALARM',
-    'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(`A visita DELTA CNC de ${visit.client || visit.company || 'cliente'} começa agora.`)}`,
-    'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'
-  ].join('\r\n');
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `visita-delta-${visit.date}-${icsEscape(visit.client || 'cliente').replace(/[^\w-]/g, '-')}.ics`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  toast('Arquivo de calendário baixado. Abra-o no celular e salve os dois alertas.');
 }
 
 function exportCsv() {
