@@ -13,7 +13,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="logo.png">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=10">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -53,8 +53,9 @@
           </div>
         </div>
         <nav class="top-navigation" aria-label="Navegação principal">
-          <button class="sidebar-link active" data-tab="visitas" type="button"><span>📋</span> Visitas</button>
+          <button class="sidebar-link active" data-tab="visitas" type="button"><span>📋</span> Testes</button>
           <button class="sidebar-link" data-tab="agenda" type="button"><span>📅</span> Agenda</button>
+          <button class="sidebar-link" data-tab="calendario" type="button"><span>🗓️</span> Calendário</button>
           <button class="sidebar-link" data-tab="dashboard" type="button"><span>📊</span> Dashboard</button>
           <button class="sidebar-link admin-only hidden" data-tab="usuarios" type="button"><span>👥</span> Acessos</button>
         </nav>
@@ -77,7 +78,7 @@
               <input type="month" id="fPeriod" class="input-delta">
             </div>
             <div class="form-group">
-              <label for="fSearch">Pesquisar cliente / empresa / anfitrião</label>
+              <label for="fSearch">Pesquisar cliente / empresa / responsável</label>
               <input type="text" id="fSearch" class="input-delta" placeholder="Ex.: João, Metalúrgica...">
             </div>
             <div class="form-group">
@@ -85,6 +86,7 @@
               <select id="fStatus" class="input-delta">
                 <option value="">Todos</option>
                 <option>Agendada</option>
+                <option>Preparação</option>
                 <option>Em andamento</option>
                 <option>Concluída</option>
                 <option>Cancelada</option>
@@ -105,6 +107,14 @@
               </select>
             </div>
             <div class="form-group">
+              <label for="fTestType">Tipo de teste</label>
+              <select id="fTestType" class="input-delta">
+                <option value="">Todos</option>
+                <option value="Interno">Interno</option>
+                <option value="Demonstração com cliente">Com cliente</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="fApproval">Análise da fábrica</label>
               <select id="fApproval" class="input-delta">
                 <option value="">Todas</option>
@@ -121,7 +131,7 @@
 
           <div class="action-bar">
             <div class="action-group">
-              <button class="btn-delta btn-indigo editor-only" id="newVisitBtn" type="button">➕ Novo pedido interno</button>
+              <button class="btn-delta btn-indigo editor-only" id="newVisitBtn" type="button">➕ Agendar teste</button>
               <button class="btn-delta btn-emerald editor-only" id="openAiImportBtn" type="button">✨ Preencher com IA</button>
             </div>
             <div class="action-group">
@@ -136,7 +146,8 @@
               <thead>
                 <tr>
                   <th>Data / Hora</th>
-                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Cliente / teste</th>
                   <th>Linha</th>
                   <th>Empresa</th>
                   <th>Motivo</th>
@@ -152,16 +163,36 @@
               </thead>
               <tbody id="visitsBody"></tbody>
             </table>
-            <p id="emptyMsg" class="empty-msg hidden">Nenhuma visita encontrada.</p>
+            <p id="emptyMsg" class="empty-msg hidden">Nenhum teste encontrado.</p>
           </div>
         </section>
 
         <!-- AGENDA -->
         <section id="tab-agenda" class="hidden">
-          <h2 class="section-title">Hoje</h2>
-          <div id="agendaToday" class="agenda-list"></div>
-          <h2 class="section-title">Próximas visitas</h2>
-          <div id="agendaUpcoming" class="agenda-list"></div>
+          <div class="summary-cards" id="agendaStats"></div>
+          <h2 class="section-title">Todas as visitas e testes</h2>
+          <div id="agendaAllVisits" class="agenda-list"></div>
+        </section>
+
+        <section id="tab-calendario" class="hidden">
+          <div class="calendar-toolbar">
+            <div>
+              <h2 id="calendarMonthLabel" class="section-title"></h2>
+              <p class="hint">Visitas organizadas por data</p>
+            </div>
+            <div class="calendar-nav">
+              <button id="calendarPrevBtn" class="btn-delta btn-slate btn-sm" type="button" aria-label="Mês anterior">‹</button>
+              <button id="calendarTodayBtn" class="btn-delta btn-slate btn-sm" type="button">Hoje</button>
+              <button id="calendarNextBtn" class="btn-delta btn-slate btn-sm" type="button" aria-label="Próximo mês">›</button>
+            </div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid" aria-label="Calendário mensal">
+            <div class="calendar-weekday">Seg</div><div class="calendar-weekday">Ter</div><div class="calendar-weekday">Qua</div><div class="calendar-weekday">Qui</div><div class="calendar-weekday">Sex</div><div class="calendar-weekday">Sáb</div><div class="calendar-weekday">Dom</div>
+          </div>
+          <div class="calendar-day-detail">
+            <h2 id="calendarSelectedDate" class="section-title"></h2>
+            <div id="calendarSelectedVisits" class="agenda-list"></div>
+          </div>
         </section>
 
         <!-- DASHBOARD -->
@@ -181,7 +212,7 @@
           </div>
         </section>
 
-        <section id="tab-usuarios" class="hidden admin-only">
+        <section id="tab-usuarios" class="hidden">
           <div class="action-bar">
             <div>
               <h2 class="section-title">Acessos da equipe</h2>
@@ -201,15 +232,16 @@
     </div>
   </div>
 
-  <!-- Modal visita -->
+  <!-- Modal teste -->
   <div id="visitModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <form class="modal" id="visitForm">
-      <h2 id="visitModalTitle">Novo pedido interno</h2>
-      <p class="hint">Revise as informações recebidas do comercial e complete o que estiver faltando antes da validação fabril.</p>
+      <h2 id="visitModalTitle">Agendar teste</h2>
+      <p class="hint">Escolha o tipo. Teste interno não exige cliente; demonstração registra os dados da visita.</p>
       <div class="form-grid">
-        <div class="form-group"><label for="vClient">Visitante (nome) *</label><input id="vClient" class="input-delta" required maxlength="120"></div>
-        <div class="form-group"><label for="vCompany">Empresa do cliente *</label><input id="vCompany" class="input-delta" required maxlength="120"></div>
-        <div class="form-group"><label for="vPhone">Telefone / e-mail</label><input id="vPhone" class="input-delta" maxlength="120"></div>
+        <div class="form-group"><label for="vTestType">Tipo de teste *</label><select id="vTestType" class="input-delta" required><option value="Interno">Interno, sem cliente</option><option value="Demonstração com cliente">Demonstração com cliente</option></select></div>
+        <div class="form-group customer-field hidden"><label for="vClient">Nome do cliente *</label><input id="vClient" class="input-delta" maxlength="120"></div>
+        <div class="form-group customer-field hidden"><label for="vCompany">Empresa do cliente *</label><input id="vCompany" class="input-delta" maxlength="120"></div>
+        <div class="form-group customer-field hidden"><label for="vPhone">Telefone / e-mail</label><input id="vPhone" class="input-delta" maxlength="120"></div>
         <div class="form-group">
           <label for="vLine">Linha *</label>
           <select id="vLine" class="input-delta" required>
@@ -220,16 +252,17 @@
           </select>
         </div>
         <div class="form-group"><label for="vCommercial">Responsável comercial</label><input id="vCommercial" class="input-delta" readonly></div>
-        <div class="form-group"><label for="vFactory">Responsável fabril</label><input id="vFactory" class="input-delta" readonly></div>
-        <div class="form-group"><label for="vMachine">Máquina que deseja conhecer *</label><input id="vMachine" class="input-delta" required maxlength="160" placeholder="Ex.: Router CNC 1530"></div>
-        <div class="form-group"><label for="vMaterial">Material que pretende cortar *</label><input id="vMaterial" class="input-delta" required maxlength="160" placeholder="Ex.: MDF, acrílico, aço carbono"></div>
+        <div class="form-group"><label for="vFactory">Responsável pelo teste</label><input id="vFactory" class="input-delta" maxlength="120" placeholder="Defina quem acompanha este teste"></div>
+        <div class="form-group"><label for="vMachine">Máquina do teste *</label><input id="vMachine" class="input-delta" required maxlength="160" placeholder="Ex.: Router CNC 1530"></div>
+        <div class="form-group"><label for="vMaterial">Material *</label><input id="vMaterial" class="input-delta" required maxlength="160" placeholder="Ex.: MDF, acrílico, aço carbono"></div>
         <div class="form-group"><label for="vThickness">Espessura / dimensões</label><input id="vThickness" class="input-delta" maxlength="120" placeholder="Ex.: chapa de 3 mm"></div>
-        <div class="form-group"><label for="vHost">Anfitrião ou contato na DELTA</label><input id="vHost" class="input-delta" maxlength="120"></div>
+        <div class="form-group customer-field hidden"><label for="vHost">Anfitrião / contato DELTA</label><input id="vHost" class="input-delta" maxlength="120"></div>
         <div class="form-group"><label for="vDate">Data *</label><input type="date" id="vDate" class="input-delta" required></div>
         <div class="form-group"><label for="vTime">Hora prevista *</label><input type="time" id="vTime" class="input-delta" required></div>
         <div class="form-group">
-          <label for="vReason">Motivo *</label>
+          <label for="vReason">Objetivo do teste *</label>
           <select id="vReason" class="input-delta" required>
+            <option>Teste de corte</option>
             <option>Reunião comercial</option>
             <option>Visita técnica</option>
             <option>Entrega / retirada</option>
@@ -248,12 +281,33 @@
             <option>Não compareceu</option>
           </select>
         </div>
-        <div class="form-group full"><label for="vNotes">Observações recebidas</label><textarea id="vNotes" class="input-delta" rows="3" maxlength="1000" placeholder="Informações adicionais enviadas pelo comercial"></textarea></div>
+        <div class="form-group full"><label for="vNotes">Objetivo / observações</label><textarea id="vNotes" class="input-delta" rows="3" maxlength="1000" placeholder="O que precisa ser validado neste teste?"></textarea></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-delta btn-slate" data-close="visitModal">Cancelar</button>
-        <button type="submit" class="btn-delta btn-indigo" id="saveVisitBtn">Enviar solicitação</button>
+        <button type="submit" class="btn-delta btn-indigo" id="saveVisitBtn">Enviar para aprovação fabril</button>
       </div>
+    </form>
+  </div>
+
+  <div id="testWorkModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal" id="testWorkForm">
+      <h2 id="testWorkTitle">Acompanhar teste</h2>
+      <p id="testWorkSummary" class="hint"></p>
+      <div class="form-grid">
+        <div class="form-group"><label for="testWorkStatus">Etapa</label><select id="testWorkStatus" class="input-delta"><option>Agendada</option><option>Preparação</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option><option>Não compareceu</option></select></div>
+        <fieldset class="form-group full checklist-group">
+          <legend>Checklist de preparação</legend>
+          <label><input type="checkbox" name="prepChecklist" value="Material separado"> Material separado</label>
+          <label><input type="checkbox" name="prepChecklist" value="Máquina liberada"> Máquina liberada</label>
+          <label><input type="checkbox" name="prepChecklist" value="Programa e parâmetros conferidos"> Programa e parâmetros conferidos</label>
+          <label><input type="checkbox" name="prepChecklist" value="Ferramentas e consumíveis prontos"> Ferramentas e consumíveis prontos</label>
+          <label><input type="checkbox" name="prepChecklist" value="Segurança e área conferidas"> Segurança e área conferidas</label>
+        </fieldset>
+        <div class="form-group full"><label for="testPreparationNotes">Pendências / preparação</label><textarea id="testPreparationNotes" class="input-delta" rows="3" maxlength="1000" placeholder="O que falta preparar? Quem precisa agir?"></textarea></div>
+        <div class="form-group full"><label for="testResult">Resultado do teste</label><textarea id="testResult" class="input-delta" rows="4" maxlength="2000" placeholder="Registre o que foi testado, resultado e próximos passos. Obrigatório para concluir."></textarea></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn-delta btn-slate" data-close="testWorkModal">Cancelar</button><button type="submit" class="btn-delta btn-indigo">Salvar andamento</button></div>
     </form>
   </div>
 
@@ -310,10 +364,22 @@
       <div class="form-group"><label for="aEmail">E-mail</label><input type="email" id="aEmail" class="input-delta" required autocomplete="username"></div>
       <div class="form-group"><label for="aPass">Senha</label><input type="password" id="aPass" class="input-delta" required autocomplete="current-password"></div>
       <p id="authError" class="form-error"></p>
+      <button type="button" class="btn-delta btn-slate btn-sm" id="requestPasswordResetBtn">Esqueci minha senha</button>
       <div class="modal-actions">
         <button type="button" class="btn-delta btn-slate" data-close="authModal">Cancelar</button>
         <button type="submit" class="btn-delta btn-indigo">Entrar</button>
       </div>
+    </form>
+  </div>
+
+  <div id="passwordResetModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+    <form class="modal modal-sm" id="passwordResetForm">
+      <h2>Definir nova senha</h2>
+      <p class="hint">Escolha uma senha nova com pelo menos 12 caracteres.</p>
+      <div class="form-group"><label for="newPassword">Nova senha</label><input type="password" id="newPassword" class="input-delta" required minlength="12" autocomplete="new-password"></div>
+      <div class="form-group"><label for="confirmNewPassword">Confirmar nova senha</label><input type="password" id="confirmNewPassword" class="input-delta" required minlength="12" autocomplete="new-password"></div>
+      <p id="passwordResetError" class="form-error"></p>
+      <div class="modal-actions"><button type="submit" class="btn-delta btn-indigo" id="saveNewPasswordBtn">Salvar nova senha</button></div>
     </form>
   </div>
 
@@ -332,6 +398,6 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
