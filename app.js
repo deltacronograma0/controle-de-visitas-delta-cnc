@@ -295,7 +295,10 @@ function agendaItem(v) {
     <p>Material: ${esc(v.material || '—')}${v.materialThickness ? ` · ${esc(v.materialThickness)}` : ''}</p>
     <p>Vendedora: ${esc(v.commercialResponsible || 'A definir')}</p>
     ${testType(v) === 'Demonstração com cliente' ? `<p>Atendimento ao cliente: ${esc(v.host || 'A definir')}</p>` : ''}
-    <p>Acompanhamento da produção: ${esc(v.factoryResponsible || 'A definir')} · ${esc(fmtDate(v.date))} · ${badge(v.status)}</p>
+    <p>Acompanhamento da produção: ${esc(v.factoryResponsible || 'A definir')} · ${badge(v.status)}</p>
+    ${requestStatus(v) === 'Nova data sugerida' && v.suggestedDate && v.suggestedTime
+      ? `<div class="schedule-comparison"><p>Agendamento original: <strong>${esc(fmtDate(v.date))} às ${esc(v.time)}</strong></p><p>Nova sugestão da fábrica: <strong>${esc(fmtDate(v.suggestedDate))} às ${esc(v.suggestedTime)}</strong></p></div>`
+      : `<p>Data e horário: ${esc(fmtDate(v.date))} às ${esc(v.time)}</p>`}
     ${v.status === 'Preparação' ? `<p class="attention-note">Preparação em aberto: ${(v.preparationChecklist || []).length} de 5 itens concluídos</p>` : ''}
     ${v.testPreparationNotes ? `<p>Preparação: ${esc(v.testPreparationNotes)}</p>` : ''}
     ${v.testResult ? `<p>Resultado: ${esc(v.testResult)}</p>` : ''}

@@ -223,6 +223,9 @@ textarea.input-delta { resize: vertical; }
 .agenda-item p { margin: 0; color: var(--text-muted); font-size: .82rem; }
 .agenda-item .row-actions { margin-top: .6rem; }
 .agenda-item p + p { margin-top: .18rem; }
+.schedule-comparison { margin-top: .45rem; padding: .5rem .65rem; border-left: 3px solid #f59e0b; background: rgba(245,158,11,.08); }
+.schedule-comparison p { color: #e5e7eb; }
+.schedule-comparison strong { color: #fcd34d; }
 .checklist-group { border: 1px solid var(--border); border-radius: 8px; padding: .8rem; }
 .checklist-group legend { padding: 0 .35rem; color: var(--text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
 .checklist-group label { display: flex; align-items: center; gap: .55rem; color: var(--text); font-size: .85rem; text-transform: none; letter-spacing: 0; }
