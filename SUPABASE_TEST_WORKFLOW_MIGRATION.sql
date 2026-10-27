@@ -73,8 +73,8 @@ begin
 
   if public.visits_has_role('Editor', old.data->>'line') then
     if old_approval = 'Pendente' and lower(old.data->>'requestedByEmail') = actor_email then
-      if (new.data - array['client','company','phone','testType','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt'])
-        <> (old.data - array['client','company','phone','testType','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt']) then
+      if (new.data - array['client','company','phone','testType','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt','preparationChecklist','testPreparationNotes','testResult'])
+        <> (old.data - array['client','company','phone','testType','line','commercialResponsible','factoryResponsible','machineRequested','material','materialThickness','host','date','time','reason','notes','requestedByEmail','requestedByName','requestedAt','approvalStatus','approvalReason','factoryNote','suggestedDate','suggestedTime','reviewedByEmail','reviewedAt','preparationChecklist','testPreparationNotes','testResult']) then
         raise exception 'Nao e permitido alterar dados tecnicos durante a validacao fabril.';
       end if;
       if coalesce(new.data->>'testType', 'Demonstração com cliente') not in ('Interno', 'Demonstração com cliente') then

@@ -189,11 +189,21 @@ async function pullRemote() {
   renderAll();
 }
 
-async function persist(visit) {
+async function persist(visit, { insert = false } = {}) {
   saveLocal();
-  if (!sb) return;
-  const { error } = await sb.from('visits').upsert({ id: visit.id, data: visit, updated_at: new Date().toISOString() });
-  if (error) { toast('Erro ao sincronizar: ' + error.message); setSync(false, 'Erro de sync'); }
+  if (!sb) return true;
+  const updatedAt = new Date().toISOString();
+  const query = insert
+    ? sb.from('visits').insert({ id: visit.id, data: visit, updated_at: updatedAt })
+    : sb.from('visits').update({ data: visit, updated_at: updatedAt }).eq('id', visit.id);
+  const { error } = await query.select('id').single();
+  if (error) {
+    toast('Erro ao sincronizar: ' + error.message);
+    setSync(false, 'Erro de sync');
+    return false;
+  }
+  setSync(true, 'Sincronizado');
+  return true;
 }
 
 async function removeRemote(id) {
@@ -596,7 +606,7 @@ async function submitVisit(e) {
   if (prev) Object.assign(prev, v); else visits.push(v);
   closeModal('visitModal');
   renderAll();
-  await persist(v);
+  await persist(v, { insert: !prev });
   toast('Teste encaminhado para aprovação fabril.');
 }
 
