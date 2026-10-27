@@ -293,11 +293,12 @@ function agendaItem(v) {
     <h4>${esc(v.time)} — ${esc(v.client || v.company || 'Teste interno')} ${approvalBadge(requestStatus(v))}</h4>
     <p><span class="test-type-badge ${testType(v) === 'Interno' ? 'internal' : 'customer'}">${kindLabel}</span> · ${esc(v.line || 'Linha não definida')} · ${esc(v.company || 'Sem cliente')} · ${esc(v.machineRequested || v.reason)}</p>
     <p>Material: ${esc(v.material || '—')}${v.materialThickness ? ` · ${esc(v.materialThickness)}` : ''}</p>
-    <p>Responsável: ${esc(v.factoryResponsible || v.host || 'A definir')} · ${esc(fmtDate(v.date))} · ${badge(v.status)}</p>
+    <p>Vendedora: ${esc(v.commercialResponsible || 'A definir')}</p>
+    ${testType(v) === 'Demonstração com cliente' ? `<p>Atendimento ao cliente: ${esc(v.host || 'A definir')}</p>` : ''}
+    <p>Acompanhamento da produção: ${esc(v.factoryResponsible || 'A definir')} · ${esc(fmtDate(v.date))} · ${badge(v.status)}</p>
     ${v.status === 'Preparação' ? `<p class="attention-note">Preparação em aberto: ${(v.preparationChecklist || []).length} de 5 itens concluídos</p>` : ''}
     ${v.testPreparationNotes ? `<p>Preparação: ${esc(v.testPreparationNotes)}</p>` : ''}
     ${v.testResult ? `<p>Resultado: ${esc(v.testResult)}</p>` : ''}
-    <p>Comercial: ${esc(v.commercialResponsible || '—')}${testType(v) === 'Demonstração com cliente' ? ` · Anfitrião: ${esc(v.host || '—')}` : ''}</p>
     ${v.approvalReason ? `<p>Motivo: ${esc(v.approvalReason)}</p>` : ''}${v.factoryNote ? `<p>Fábrica: ${esc(v.factoryNote)}</p>` : ''}
     <div>${actionButtons(v)}</div>
   </div>`;
@@ -441,9 +442,9 @@ function openVisitModal(id) {
   $('vLine').value = v.line || '';
   if (profile?.role === 'Editor' && profile.line) $('vLine').value = profile.line;
   $('vLine').disabled = !!sb && profile?.role === 'Editor';
+  $('vCommercial').value = v.commercialResponsible || '';
+  $('vFactory').value = v.factoryResponsible || '';
   updateLineResponsibles();
-  if (v.commercialResponsible) $('vCommercial').value = v.commercialResponsible;
-  if (v.factoryResponsible) $('vFactory').value = v.factoryResponsible;
   $('vMachine').value = v.machineRequested || '';
   $('vMaterial').value = v.material || '';
   $('vThickness').value = v.materialThickness || '';
@@ -465,6 +466,8 @@ function updateTestTypeFields() {
   document.querySelectorAll('.customer-field').forEach((field) => field.classList.toggle('hidden', !isCustomerDemo));
   $('vClient').required = isCustomerDemo;
   $('vCompany').required = isCustomerDemo;
+  $('vCommercial').required = isCustomerDemo;
+  $('vHost').required = isCustomerDemo;
   if (!isCustomerDemo) {
     ['vClient', 'vCompany', 'vPhone', 'vHost'].forEach((id) => { $(id).value = ''; });
   }
@@ -472,8 +475,8 @@ function updateTestTypeFields() {
 
 function updateLineResponsibles() {
   const responsibles = LINE_RESPONSIBLES[$('vLine').value];
-  $('vCommercial').value = responsibles?.commercial || '';
-  $('vFactory').value = responsibles?.factory || '';
+  if (!$('vCommercial').value.trim()) $('vCommercial').value = responsibles?.commercial || '';
+  if (!$('vFactory').value.trim()) $('vFactory').value = responsibles?.factory || '';
 }
 
 async function extractVisitWithAi(sourceText, pdfFile, signal) {
@@ -743,8 +746,10 @@ function downloadVisitCalendar(visit) {
     `Linha: ${visit.line || '—'}`,
     `Máquina: ${visit.machineRequested || '—'}`,
     `Material: ${visit.material || '—'}`,
-    `Motivo: ${visit.reason || '—'}`,
-    `Anfitrião: ${visit.host || '—'}`
+    `Vendedora: ${visit.commercialResponsible || '—'}`,
+    `Quem atenderá: ${visit.host || '—'}`,
+    `Acompanhamento da produção: ${visit.factoryResponsible || '—'}`,
+    `Objetivo: ${visit.reason || '—'}`
   ].join('\\n');
   const ics = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DELTA CNC//Controle de Visitas//PT-BR', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
@@ -765,7 +770,7 @@ function downloadVisitCalendar(visit) {
 
 function exportCsv() {
   const cols = ['testType', 'date', 'time', 'client', 'company', 'phone', 'line', 'machineRequested', 'material', 'materialThickness', 'reason', 'host', 'commercialResponsible', 'factoryResponsible', 'approvalStatus', 'approvalReason', 'factoryNote', 'suggestedDate', 'suggestedTime', 'status', 'preparationChecklist', 'testPreparationNotes', 'testResult', 'checkIn', 'checkOut', 'notes'];
-  const head = ['Tipo de teste', 'Data', 'Hora', 'Cliente', 'Empresa', 'Contato', 'Linha', 'Máquina', 'Material', 'Espessura / dimensões', 'Objetivo', 'Anfitrião', 'Responsável comercial', 'Responsável fabril', 'Aprovação fabril', 'Motivo da recusa', 'Observação da fábrica', 'Data sugerida', 'Horário sugerido', 'Etapa', 'Checklist de preparação', 'Pendências de preparação', 'Resultado do teste', 'Início', 'Conclusão', 'Observações'];
+  const head = ['Tipo de teste', 'Data', 'Hora', 'Cliente', 'Empresa', 'Contato', 'Linha', 'Máquina', 'Material', 'Espessura / dimensões', 'Objetivo', 'Quem atenderá o cliente', 'Vendedora responsável', 'Acompanhamento da produção', 'Aprovação fabril', 'Motivo da recusa', 'Observação da fábrica', 'Data sugerida', 'Horário sugerido', 'Etapa', 'Checklist de preparação', 'Pendências de preparação', 'Resultado do teste', 'Início', 'Conclusão', 'Observações'];
   // Prefixo ' evita injeção de fórmulas ao abrir no Excel.
   const cell = (x) => { let s = String(x ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
   const rows = filtered().map((v) => cols.map((c) => cell(Array.isArray(v[c]) ? v[c].join(', ') : v[c])).join(';'));

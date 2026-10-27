@@ -151,9 +151,9 @@
                   <th>Linha</th>
                   <th>Empresa</th>
                   <th>Motivo</th>
-                  <th>Anfitrião</th>
-                  <th>Comercial</th>
-                  <th>Fabril</th>
+                  <th>Quem atenderá</th>
+                  <th>Vendedora responsável</th>
+                  <th>Acompanhamento da produção</th>
                   <th>Entrada</th>
                   <th>Saída</th>
                   <th>Estado</th>
@@ -251,12 +251,12 @@
             <option>Linha Pesada</option>
           </select>
         </div>
-        <div class="form-group"><label for="vCommercial">Responsável comercial</label><input id="vCommercial" class="input-delta" readonly></div>
-        <div class="form-group"><label for="vFactory">Responsável pelo teste</label><input id="vFactory" class="input-delta" maxlength="120" placeholder="Defina quem acompanha este teste"></div>
+        <div class="form-group"><label for="vCommercial">Vendedora responsável</label><input id="vCommercial" class="input-delta" maxlength="120" placeholder="Defina a vendedora que acompanha este agendamento"></div>
+        <div class="form-group"><label for="vFactory">Quem da produção acompanhará *</label><input id="vFactory" class="input-delta" required maxlength="120" placeholder="Pessoa da produção responsável pelo teste"></div>
         <div class="form-group"><label for="vMachine">Máquina do teste *</label><input id="vMachine" class="input-delta" required maxlength="160" placeholder="Ex.: Router CNC 1530"></div>
         <div class="form-group"><label for="vMaterial">Material *</label><input id="vMaterial" class="input-delta" required maxlength="160" placeholder="Ex.: MDF, acrílico, aço carbono"></div>
         <div class="form-group"><label for="vThickness">Espessura / dimensões</label><input id="vThickness" class="input-delta" maxlength="120" placeholder="Ex.: chapa de 3 mm"></div>
-        <div class="form-group customer-field hidden"><label for="vHost">Anfitrião / contato DELTA</label><input id="vHost" class="input-delta" maxlength="120"></div>
+        <div class="form-group customer-field hidden"><label for="vHost">Quem atenderá o cliente *</label><input id="vHost" class="input-delta" maxlength="120" placeholder="Pessoa que receberá e acompanhará o cliente"></div>
         <div class="form-group"><label for="vDate">Data *</label><input type="date" id="vDate" class="input-delta" required></div>
         <div class="form-group"><label for="vTime">Hora prevista *</label><input type="time" id="vTime" class="input-delta" required></div>
         <div class="form-group">
@@ -398,6 +398,6 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

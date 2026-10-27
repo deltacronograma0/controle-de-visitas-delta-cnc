@@ -5,6 +5,7 @@ Aplicação interna da produção para organizar testes de máquina, tanto inter
 ## Fluxo interno
 
 - Cada teste é classificado como **Interno, sem cliente** ou **Demonstração com cliente**. Os dados do cliente só são obrigatórios para demonstrações.
+- Em demonstrações, o agendamento exige vendedora responsável e a pessoa que atenderá o cliente; todo teste exige responsável da produção. A linha sugere nomes padrão, que podem ser ajustados para cada teste.
 - A produção abre **Preencher com IA**, cola a mensagem recebida ou seleciona um PDF.
 - O Gemini sugere os campos de cliente, linha, máquina, material, espessura/dimensões, data, horário e observações.
 - A produção revisa e corrige os campos no formulário antes de encaminhar para validação fabril.
