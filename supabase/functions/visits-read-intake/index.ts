@@ -40,8 +40,8 @@ Deno.serve(async (request) => {
   if (authError || !email || authData.user?.is_anonymous) return respond({ error: 'Sessão inválida.' }, 401);
   const { data: profile, error: profileError } = await admin.from('visits_user_roles')
     .select('role').eq('email', email).maybeSingle();
-  if (profileError || !['Editor', 'Administrador'].includes(profile?.role || '')) {
-    return respond({ error: 'Apenas usuários da produção podem usar esta função.' }, 403);
+  if (profileError || !['Editor', 'Administrador', 'Vendas'].includes(profile?.role || '')) {
+    return respond({ error: 'Apenas usuários autorizados de Vendas ou produção podem usar esta função.' }, 403);
   }
 
   let body: { text?: string; pdfPath?: string };

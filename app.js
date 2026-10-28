@@ -15,6 +15,7 @@ const LINE_RESPONSIBLES = {
   'Linha Intermediária': { commercial: 'Gustavo - Vendas - SP', factory: 'Pedro Mendes - Fábrica' },
   'Linha Pesada': { commercial: 'Victor - Vendas - SP', factory: 'Leonardo e Ana - Fábrica' }
 };
+const lineResponsibles = (line) => LINE_RESPONSIBLES[line] || { commercial: '', factory: '' };
 const LINE_EDITOR_ROLES = {
   'Linha Leve': 'Editor',
   'Linha Intermediária': 'Editor',
@@ -44,12 +45,16 @@ const badge = (s) => `<span class="badge badge-${esc(s.replace(/ /g, '-'))}">${e
 
 /* ---------- Estado de permissão ---------- */
 const isAdmin = () => !!session && profile?.role === 'Administrador';
-const canEdit = () => !!session && ['Editor', 'Administrador'].includes(profile?.role);
+const canSchedule = () => !!session && (isAdmin() || profile?.role === 'Vendas');
+const canEdit = () => !!session && ['Editor', 'Administrador', 'Vendas'].includes(profile?.role);
 const canEditVisit = (visit) => canEdit() && (isAdmin()
   || (profile?.role === 'Editor' && profile.line === visit?.line
     && (requestStatus(visit) === 'Aprovada'
       || (['Pendente', 'Recusada', 'Nova data sugerida'].includes(requestStatus(visit))
-        && visit?.requestedByEmail === profile?.email))));
+        && visit?.requestedByEmail === profile?.email)))
+  || (profile?.role === 'Vendas' && profile.line === visit?.line
+    && ['Pendente', 'Recusada', 'Nova data sugerida'].includes(requestStatus(visit))
+    && visit?.requestedByEmail === profile?.email));
 const canReview = (visit) => !!session && (profile?.role === 'Administrador'
   || (profile?.role === LINE_EDITOR_ROLES[visit?.line] && profile?.line === visit?.line
     && visit?.requestedByEmail !== profile?.email));
@@ -65,6 +70,10 @@ function refreshPermissionVisibility() {
   $('localBanner').classList.add('hidden');
   $('newVisitBtn').classList.remove('hidden');
   $('openAiImportBtn').classList.remove('hidden');
+  if (session && !canSchedule()) {
+    $('newVisitBtn').classList.add('hidden');
+    $('openAiImportBtn').classList.add('hidden');
+  }
 }
 
 function applyRole() {
@@ -75,9 +84,9 @@ function applyRole() {
   $('authBtn').classList.toggle('hidden', !sb);
   $('localBanner').classList.add('hidden');
   $('authBtn').disabled = false;
-  $('openAiImportBtn').classList.remove('hidden');
-  $('vLine').disabled = !!sb && profile?.role === 'Editor';
-  if (profile?.role === 'Editor' && profile.line) {
+  $('openAiImportBtn').classList.toggle('hidden', !!session && !canSchedule());
+  $('vLine').disabled = !!sb && ['Editor', 'Vendas'].includes(profile?.role);
+  if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) {
     $('vLine').value = profile.line;
     updateLineResponsibles();
   }
@@ -268,8 +277,8 @@ function renderTable() {
       <td>${esc(v.company)}</td>
       <td>${esc(v.reason)}</td>
       <td>${esc(v.host)}</td>
-      <td>${esc(v.commercialResponsible || '—')}</td>
-      <td>${esc(v.factoryResponsible || '—')}</td>
+      <td>${esc(lineResponsibles(v.line).commercial || '—')}</td>
+      <td>${esc(lineResponsibles(v.line).factory || '—')}${v.factoryParticipants?.length ? `<br><small>Acompanham: ${esc(v.factoryParticipants.join(', '))}</small>` : ''}</td>
       <td>${esc(v.checkIn || '—')}</td>
       <td>${esc(v.checkOut || '—')}</td>
       <td>${badge(v.status)}</td>
@@ -286,22 +295,37 @@ function renderTable() {
 }
 
 /* ---------- Render: agenda ---------- */
+function agendaFact(label, value, emphasis = false) {
+  return `<div class="agenda-fact${emphasis ? ' agenda-fact-emphasis' : ''}"><span>${esc(label)}</span><strong>${esc(value || '—')}</strong></div>`;
+}
+
 function agendaItem(v) {
   const kindLabel = testType(v) === 'Interno' ? 'Teste interno' : 'Demonstração com cliente';
-  return `<div class="agenda-item">
-    <h4>${esc(v.time)} — ${esc(v.client || v.company || 'Teste interno')} ${approvalBadge(requestStatus(v))}</h4>
-    <p><span class="test-type-badge ${testType(v) === 'Interno' ? 'internal' : 'customer'}">${kindLabel}</span> · ${esc(v.line || 'Linha não definida')} · ${esc(v.company || 'Sem cliente')} · ${esc(v.machineRequested || v.reason)}</p>
-    <p>Material: ${esc(v.material || '—')}${v.materialThickness ? ` · ${esc(v.materialThickness)}` : ''}</p>
-    <p>Vendedora: ${esc(v.commercialResponsible || 'A definir')}</p>
-    ${testType(v) === 'Demonstração com cliente' ? `<p>Atendimento ao cliente: ${esc(v.host || 'A definir')}</p>` : ''}
-    <p>Acompanhamento da produção: ${esc(v.factoryResponsible || 'A definir')} · ${badge(v.status)}</p>
+  return `<div class="agenda-item ${testType(v) === 'Interno' ? 'agenda-item-internal' : 'agenda-item-customer'}">
+    <div class="agenda-item-heading"><h4><span class="agenda-time">${esc(v.time || '—')}</span>${esc(v.client || v.company || 'Teste interno')}</h4>${approvalBadge(requestStatus(v))}</div>
+    <div class="agenda-facts">
+      ${agendaFact('Tipo de teste', kindLabel)}
+      ${agendaFact('Cliente', v.client || (testType(v) === 'Interno' ? 'Teste interno' : v.company), true)}
+      ${agendaFact('Solicitado por', v.requestedByName || v.requestedByEmail || '—')}
+      ${v.salesParticipants?.length ? agendaFact('Vendedores acompanhantes', v.salesParticipants.join(', ')) : ''}
+      ${v.company ? agendaFact('Empresa', v.company) : ''}
+      ${agendaFact('Máquina', v.machineRequested || v.reason, true)}
+      ${agendaFact('Linha', v.line)}
+      ${agendaFact('Material', [v.material, v.materialThickness].filter(Boolean).join(' · '))}
+      ${agendaFact('Teste realizado por', 'Fábrica')}
+      ${agendaFact('Responsável da produção', lineResponsibles(v.line).factory || 'A definir')}
+      ${v.factoryParticipants?.length ? agendaFact('Outros acompanhantes', v.factoryParticipants.join(', ')) : ''}
+      ${testType(v) === 'Demonstração com cliente' ? agendaFact('Atendimento ao cliente', v.host || 'A definir') : ''}
+      ${agendaFact('Responsável comercial', lineResponsibles(v.line).commercial || 'A definir')}
+      ${agendaFact('Status do teste', v.status)}
+    </div>
     ${requestStatus(v) === 'Nova data sugerida' && v.suggestedDate && v.suggestedTime
       ? `<div class="schedule-comparison"><p class="schedule-original">Agendamento original <strong>${esc(fmtDate(v.date))} às ${esc(v.time)}</strong></p><p class="schedule-suggested">Proposta da fábrica <strong>${esc(fmtDate(v.suggestedDate))} às ${esc(v.suggestedTime)}</strong></p></div>`
-      : `<p>Data e horário: ${esc(fmtDate(v.date))} às ${esc(v.time)}</p>`}
-    ${v.status === 'Preparação' ? `<p class="attention-note">Preparação em aberto: ${(v.preparationChecklist || []).length} de 5 itens concluídos</p>` : ''}
-    ${v.testPreparationNotes ? `<p>Preparação: ${esc(v.testPreparationNotes)}</p>` : ''}
-    ${v.testResult ? `<p>Resultado: ${esc(v.testResult)}</p>` : ''}
-    ${v.approvalReason ? `<p>Motivo: ${esc(v.approvalReason)}</p>` : ''}${v.factoryNote ? `<p>Fábrica: ${esc(v.factoryNote)}</p>` : ''}
+      : `<p class="agenda-date">Data e horário: <strong>${esc(fmtDate(v.date))} às ${esc(v.time)}</strong></p>`}
+    ${v.status === 'Preparação' ? `<p class="attention-note agenda-note">Preparação em aberto: ${(v.preparationChecklist || []).length} de 5 itens concluídos</p>` : ''}
+    ${v.testPreparationNotes ? `<p class="agenda-note">Preparação: ${esc(v.testPreparationNotes)}</p>` : ''}
+    ${v.testResult ? `<p class="agenda-note">Resultado: ${esc(v.testResult)}</p>` : ''}
+    ${v.approvalReason ? `<p class="agenda-note">Motivo: ${esc(v.approvalReason)}</p>` : ''}${v.factoryNote ? `<p class="agenda-note">Observação da fábrica: ${esc(v.factoryNote)}</p>` : ''}
     <div>${actionButtons(v)}</div>
   </div>`;
 }
@@ -351,7 +375,7 @@ function renderMonthCalendar() {
       if (date === calendarSelectedDate) cell.classList.add('calendar-day-selected');
       cell.dataset.calendarDate = date;
       cell.setAttribute('aria-label', `${fmtDate(date)}, ${dayVisits.length} testes`);
-      cell.innerHTML = `<span class="calendar-day-number">${dayNumber}</span>${dayVisits.slice(0, 2).map((visit) => `<span class="calendar-event ${testType(visit) === 'Interno' ? 'calendar-event-internal' : 'calendar-event-customer'}" title="${esc(visit.time || '')} ${esc(visit.client || visit.company || 'Teste interno')} · ${esc(visit.status)}"><strong>${esc(visit.time || '—')}</strong> ${testType(visit) === 'Interno' ? 'INT' : 'CLI'} · ${esc(visit.client || visit.company || 'Teste')}</span>`).join('')}${dayVisits.length > 2 ? `<span class="calendar-more">+${dayVisits.length - 2} mais</span>` : ''}`;
+      cell.innerHTML = `<span class="calendar-day-number">${dayNumber}</span>${dayVisits.slice(0, 2).map((visit) => `<span class="calendar-event ${testType(visit) === 'Interno' ? 'calendar-event-internal' : 'calendar-event-customer'}" title="${esc(visit.time || '')} · Cliente: ${esc(visit.client || visit.company || 'Teste interno')} · Máquina: ${esc(visit.machineRequested || visit.reason || 'Não definida')} · Status: ${esc(visit.status)}"><strong>${esc(visit.time || '—')}</strong> ${testType(visit) === 'Interno' ? 'INT' : 'CLI'} · ${esc(visit.client || visit.company || 'Teste')}</span>`).join('')}${dayVisits.length > 2 ? `<span class="calendar-more">+${dayVisits.length - 2} mais</span>` : ''}`;
     }
     grid.appendChild(cell);
   }
@@ -432,8 +456,35 @@ function switchTab(tab) {
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
+function participantOptions(kind, line) {
+  const field = kind === 'sales' ? 'salesParticipants' : 'factoryParticipants';
+  return [...new Set(visits.filter((visit) => visit.line === line)
+    .flatMap((visit) => Array.isArray(visit[field]) ? visit[field] : []))]
+    .map((name) => String(name).trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function selectedParticipants(kind) {
+  const picker = $(`${kind}ParticipantPicker`);
+  try { return JSON.parse(picker.dataset.selected || '[]'); } catch { return []; }
+}
+
+function renderParticipantPicker(kind, selected = selectedParticipants(kind)) {
+  const picker = $(`${kind}ParticipantPicker`);
+  const names = [...new Set(selected.map((name) => String(name).trim()).filter(Boolean))];
+  picker.dataset.selected = JSON.stringify(names);
+  const knownNames = [...new Set([...participantOptions(kind, $('vLine').value), ...names])];
+  $(`${kind}ParticipantSelected`).innerHTML = names.length
+    ? names.map((name) => `<span class="participant-chip">${esc(name)}<button type="button" data-remove-participant="${kind}" data-name="${esc(name)}" aria-label="Remover ${esc(name)}">&times;</button></span>`).join('')
+    : '<span class="participant-empty">Ninguém selecionado</span>';
+  $(`${kind}ParticipantOptions`).innerHTML = knownNames.length
+    ? knownNames.map((name) => `<label class="participant-option"><input type="checkbox" data-participant-option="${kind}" value="${esc(name)}"${names.includes(name) ? ' checked' : ''}><span>${esc(name)}</span></label>`).join('')
+    : '<span class="participant-empty">Ainda não há nomes salvos nesta linha. Você pode adicionar um abaixo.</span>';
+}
+
 function openVisitModal(id) {
   if (!canEdit()) { openModal('authModal'); return; }
+  if (!id && !canSchedule()) { toast('Somente o responsável comercial da linha pode agendar testes.'); return; }
+  if (id && !canEditVisit(visits.find((visit) => visit.id === id))) { toast('Você não pode alterar este pedido.'); return; }
   editingId = id || null;
   const v = visits.find((x) => x.id === id) || {};
   $('visitModalTitle').textContent = id ? 'Editar teste' : 'Agendar teste';
@@ -442,10 +493,11 @@ function openVisitModal(id) {
   $('vCompany').value = v.company || '';
   $('vPhone').value = v.phone || '';
   $('vLine').value = v.line || '';
-  if (profile?.role === 'Editor' && profile.line) $('vLine').value = profile.line;
-  $('vLine').disabled = !!sb && profile?.role === 'Editor';
-  $('vCommercial').value = v.commercialResponsible || '';
-  $('vFactory').value = v.factoryResponsible || '';
+  if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) $('vLine').value = profile.line;
+  $('vLine').disabled = !!sb && ['Editor', 'Vendas'].includes(profile?.role);
+  $('factoryParticipantsGroup').classList.toggle('hidden', profile?.role === 'Vendas');
+  renderParticipantPicker('sales', Array.isArray(v.salesParticipants) ? v.salesParticipants : []);
+  renderParticipantPicker('factory', Array.isArray(v.factoryParticipants) ? v.factoryParticipants : []);
   updateLineResponsibles();
   $('vMachine').value = v.machineRequested || '';
   $('vMaterial').value = v.material || '';
@@ -468,7 +520,6 @@ function updateTestTypeFields() {
   document.querySelectorAll('.customer-field').forEach((field) => field.classList.toggle('hidden', !isCustomerDemo));
   $('vClient').required = isCustomerDemo;
   $('vCompany').required = isCustomerDemo;
-  $('vCommercial').required = isCustomerDemo;
   $('vHost').required = isCustomerDemo;
   if (!isCustomerDemo) {
     ['vClient', 'vCompany', 'vPhone', 'vHost'].forEach((id) => { $(id).value = ''; });
@@ -476,14 +527,13 @@ function updateTestTypeFields() {
 }
 
 function updateLineResponsibles() {
-  const responsibles = LINE_RESPONSIBLES[$('vLine').value];
-  if (!$('vCommercial').value.trim()) $('vCommercial').value = responsibles?.commercial || '';
-  if (!$('vFactory').value.trim()) $('vFactory').value = responsibles?.factory || '';
+  renderParticipantPicker('sales');
+  renderParticipantPicker('factory');
 }
 
 async function extractVisitWithAi(sourceText, pdfFile, signal) {
-  if (!sb || !session || !profile || !['Editor', 'Administrador'].includes(profile.role)) {
-    throw new Error('Entre no app pelo Supabase com um perfil da produção para usar a IA.');
+  if (!sb || !session || !profile || !['Administrador', 'Vendas'].includes(profile.role)) {
+    throw new Error('Entre com a conta Vendas responsável pela linha ou com um Administrador para usar a IA.');
   }
   const body = { text: sourceText };
   if (pdfFile) {
@@ -519,7 +569,7 @@ function applyAiVisitFields(data) {
     vNotes: data.notes
   };
   for (const [id, value] of Object.entries(fields)) if (value) $(id).value = value;
-  if (profile?.role === 'Editor' && profile.line) $('vLine').value = profile.line;
+  if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) $('vLine').value = profile.line;
   else if (data.line && [...$('vLine').options].some((option) => option.value === data.line)) $('vLine').value = data.line;
   updateLineResponsibles();
   if (data.reason && [...$('vReason').options].some((option) => option.value === data.reason)) $('vReason').value = data.reason;
@@ -529,8 +579,8 @@ async function processAiSource() {
   const sourceText = $('aiSourceText').value.trim();
   const pdfFile = $('aiSourcePdf').files[0];
   $('aiImportStatus').textContent = '';
-  if (!canEdit()) { closeModal('aiImportModal'); openModal('authModal'); return; }
-  if (!sb || !session) { $('aiImportStatus').textContent = 'Configure o Supabase e entre com seu usuário da produção para usar a IA.'; return; }
+  if (!canSchedule()) { if (!session) { closeModal('aiImportModal'); openModal('authModal'); } else $('aiImportStatus').textContent = 'Somente o responsável comercial da linha pode abrir pedidos.'; return; }
+  if (!sb || !session) { $('aiImportStatus').textContent = 'Configure o Supabase e entre com sua conta para usar a IA.'; return; }
   if (!sourceText && !pdfFile) { $('aiImportStatus').textContent = 'Cole o texto ou selecione um PDF.'; return; }
   if (pdfFile && pdfFile.size > 4 * 1024 * 1024) { $('aiImportStatus').textContent = 'O PDF deve ter no máximo 4 MB.'; return; }
   $('parseWithAiBtn').disabled = true;
@@ -555,6 +605,7 @@ async function submitVisit(e) {
   e.preventDefault();
   if (!canEdit()) return;
   const prev = visits.find((x) => x.id === editingId);
+  if ((!prev && !canSchedule()) || (prev && !canEditVisit(prev))) return;
   const v = {
     ...(prev || { id: uid(), createdAt: new Date().toISOString() }),
     testType: $('vTestType').value,
@@ -562,8 +613,12 @@ async function submitVisit(e) {
     company: $('vTestType').value === 'Interno' ? '' : $('vCompany').value.trim(),
     phone: $('vTestType').value === 'Interno' ? '' : $('vPhone').value.trim(),
     line: $('vLine').value,
-    commercialResponsible: $('vCommercial').value,
-    factoryResponsible: $('vFactory').value,
+    commercialResponsible: LINE_RESPONSIBLES[$('vLine').value]?.commercial || '',
+    factoryResponsible: LINE_RESPONSIBLES[$('vLine').value]?.factory || '',
+    salesParticipants: selectedParticipants('sales'),
+    factoryParticipants: profile?.role === 'Vendas' && prev
+      ? (Array.isArray(prev.factoryParticipants) ? prev.factoryParticipants : [])
+      : selectedParticipants('factory'),
     machineRequested: $('vMachine').value.trim(),
     material: $('vMaterial').value.trim(),
     materialThickness: $('vThickness').value.trim(),
@@ -588,8 +643,8 @@ async function submitVisit(e) {
     reviewedAt: ''
   };
   if (prev && requestStatus(prev) === 'Aprovada') {
-    const scheduleFields = ['testType', 'client', 'company', 'phone', 'machineRequested', 'material', 'materialThickness', 'date', 'time', 'reason', 'host'];
-    const scheduleChanged = scheduleFields.some((field) => (prev[field] || '') !== (v[field] || ''));
+    const scheduleFields = ['testType', 'client', 'company', 'phone', 'machineRequested', 'material', 'materialThickness', 'salesParticipants', 'date', 'time', 'reason', 'host'];
+    const scheduleChanged = scheduleFields.some((field) => JSON.stringify(prev[field] ?? '') !== JSON.stringify(v[field] ?? ''));
     if (scheduleChanged) {
       v.status = 'Agendada';
       v.approvalStatus = 'Pendente';
@@ -737,11 +792,16 @@ async function rowAction(act, id) {
 }
 
 function exportCsv() {
-  const cols = ['testType', 'date', 'time', 'client', 'company', 'phone', 'line', 'machineRequested', 'material', 'materialThickness', 'reason', 'host', 'commercialResponsible', 'factoryResponsible', 'approvalStatus', 'approvalReason', 'factoryNote', 'suggestedDate', 'suggestedTime', 'status', 'preparationChecklist', 'testPreparationNotes', 'testResult', 'checkIn', 'checkOut', 'notes'];
-  const head = ['Tipo de teste', 'Data', 'Hora', 'Cliente', 'Empresa', 'Contato', 'Linha', 'Máquina', 'Material', 'Espessura / dimensões', 'Objetivo', 'Quem atenderá o cliente', 'Vendedora responsável', 'Acompanhamento da produção', 'Aprovação fabril', 'Motivo da recusa', 'Observação da fábrica', 'Data sugerida', 'Horário sugerido', 'Etapa', 'Checklist de preparação', 'Pendências de preparação', 'Resultado do teste', 'Início', 'Conclusão', 'Observações'];
+  const cols = ['testType', 'date', 'time', 'client', 'company', 'phone', 'line', 'machineRequested', 'material', 'materialThickness', 'reason', 'host', 'requestedByEmail', 'commercialResponsible', 'factoryResponsible', 'salesParticipants', 'factoryParticipants', 'approvalStatus', 'approvalReason', 'factoryNote', 'suggestedDate', 'suggestedTime', 'status', 'preparationChecklist', 'testPreparationNotes', 'testResult', 'checkIn', 'checkOut', 'notes'];
+  const head = ['Tipo de teste', 'Data', 'Hora', 'Cliente', 'Empresa', 'Contato', 'Linha', 'Máquina', 'Material', 'Espessura / dimensões', 'Objetivo', 'Quem atenderá o cliente', 'Solicitado por', 'Responsável comercial da linha', 'Responsável da produção da linha', 'Vendedores acompanhantes', 'Outros acompanhantes da produção', 'Aprovação fabril', 'Motivo da recusa', 'Observação da fábrica', 'Data sugerida', 'Horário sugerido', 'Etapa', 'Checklist de preparação', 'Pendências de preparação', 'Resultado do teste', 'Início', 'Conclusão', 'Observações'];
   // Prefixo ' evita injeção de fórmulas ao abrir no Excel.
   const cell = (x) => { let s = String(x ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
-  const rows = filtered().map((v) => cols.map((c) => cell(Array.isArray(v[c]) ? v[c].join(', ') : v[c])).join(';'));
+  const rows = filtered().map((v) => cols.map((c) => {
+    const value = c === 'commercialResponsible' ? lineResponsibles(v.line).commercial
+      : c === 'factoryResponsible' ? lineResponsibles(v.line).factory
+        : v[c];
+    return cell(Array.isArray(value) ? value.join(', ') : value);
+  }).join(';'));
   const blob = new Blob(['\ufeff' + [head.map(cell).join(';'), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -824,9 +884,9 @@ function renderUsers() {
 }
 
 function updateUserRoleFields() {
-  const isEditor = $('uRole').value === 'Editor';
-  $('uLineGroup').classList.toggle('hidden', !isEditor);
-  $('uLine').required = isEditor;
+  const needsLine = ['Editor', 'Vendas'].includes($('uRole').value);
+  $('uLineGroup').classList.toggle('hidden', !needsLine);
+  $('uLine').required = needsLine;
 }
 
 function openUserModal(email = '') {
@@ -851,11 +911,11 @@ async function submitUser(e) {
   if (!canManageUsers()) return;
   const email = $('uEmail').value.trim().toLowerCase();
   const role = $('uRole').value;
-  const line = role === 'Editor' ? $('uLine').value : null;
+  const line = ['Editor', 'Vendas'].includes(role) ? $('uLine').value : null;
   const password = $('uPassword').value;
   $('userError').textContent = '';
   if (password.length < 12) { $('userError').textContent = 'Use uma senha com pelo menos 12 caracteres.'; return; }
-  if (role === 'Editor' && !line) { $('userError').textContent = 'Selecione a linha de responsabilidade.'; return; }
+  if (['Editor', 'Vendas'].includes(role) && !line) { $('userError').textContent = 'Selecione a linha de responsabilidade.'; return; }
   $('saveUserBtn').disabled = true;
   try {
     const { data, error } = await sb.functions.invoke('visits-admin-users', {
@@ -918,6 +978,21 @@ function bindEvents() {
   $('visitForm').addEventListener('submit', submitVisit);
   $('testWorkForm').addEventListener('submit', submitTestWork);
   $('vLine').addEventListener('change', updateLineResponsibles);
+  document.querySelectorAll('[data-add-participant]').forEach((button) => button.addEventListener('click', () => {
+    const kind = button.dataset.addParticipant;
+    const input = $(`${kind}ParticipantNew`);
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    renderParticipantPicker(kind, [...selectedParticipants(kind), name]);
+    input.value = '';
+    input.focus();
+  }));
+  ['sales', 'factory'].forEach((kind) => $(`${kind}ParticipantNew`).addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      $(`[data-add-participant="${kind}"]`).click();
+    }
+  }));
   $('reviewForm').addEventListener('submit', submitReview);
   $('reviewDecision').addEventListener('change', updateReviewFields);
   $('userForm').addEventListener('submit', submitUser);
@@ -944,6 +1019,11 @@ function bindEvents() {
     if (session) { await sb.auth.signOut(); toast('Sessão encerrada.'); } else openModal('authModal');
   });
   document.body.addEventListener('click', (e) => {
+    const removeParticipant = e.target.closest('[data-remove-participant]');
+    if (removeParticipant) {
+      const { name, removeParticipant: kind } = removeParticipant.dataset;
+      renderParticipantPicker(kind, selectedParticipants(kind).filter((selected) => selected !== name));
+    }
     const calendarDay = e.target.closest('[data-calendar-date]');
     if (calendarDay) {
       calendarSelectedDate = calendarDay.dataset.calendarDate;
@@ -955,6 +1035,15 @@ function bindEvents() {
     if (editUserBtn) openUserModal(editUserBtn.dataset.userEdit);
     const deleteUserBtn = e.target.closest('[data-user-delete]');
     if (deleteUserBtn) deleteManagedUser(deleteUserBtn.dataset.userDelete);
+  });
+  document.body.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('[data-participant-option]');
+    if (!checkbox) return;
+    const kind = checkbox.dataset.participantOption;
+    const selected = selectedParticipants(kind);
+    renderParticipantPicker(kind, checkbox.checked
+      ? [...selected, checkbox.value]
+      : selected.filter((name) => name !== checkbox.value));
   });
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();

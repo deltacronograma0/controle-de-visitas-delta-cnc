@@ -9,7 +9,7 @@ const respond = (body: unknown, status = 200) => new Response(JSON.stringify(bod
   status,
   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
 });
-const validRoles = ['Administrador', 'Editor'];
+const validRoles = ['Administrador', 'Editor', 'Vendas'];
 const validLines = ['Linha Leve', 'Linha Intermediária', 'Linha Pesada'];
 
 Deno.serve(async (request) => {
@@ -49,13 +49,19 @@ Deno.serve(async (request) => {
   if (body.action === 'upsert') {
     const password = String(body.password || '');
     const role = String(body.role || '');
-    const line = role === 'Editor' ? String(body.line || '') : null;
+    const line = ['Editor', 'Vendas'].includes(role) ? String(body.line || '') : null;
     if (password.length < 12 || new TextEncoder().encode(password).length > 72) {
       return respond({ error: 'A senha deve ter entre 12 e 72 bytes.' }, 400);
     }
     if (!validRoles.includes(role)) return respond({ error: 'Perfil inválido.' }, 400);
-    if (role === 'Editor' && !validLines.includes(line || '')) return respond({ error: 'Selecione uma linha fabril válida.' }, 400);
-    if (role !== 'Editor' && body.line) return respond({ error: 'Somente perfis Editor recebem uma linha.' }, 400);
+    if (['Editor', 'Vendas'].includes(role) && !validLines.includes(line || '')) return respond({ error: 'Selecione uma linha válida.' }, 400);
+    if (!['Editor', 'Vendas'].includes(role) && body.line) return respond({ error: 'Somente perfis Editor e Vendas recebem uma linha.' }, 400);
+    if (role === 'Vendas') {
+      const { data: scheduler, error: schedulerError } = await admin.from('visits_user_roles')
+        .select('email').eq('role', 'Vendas').eq('line', line).neq('email', email).maybeSingle();
+      if (schedulerError) return respond({ error: schedulerError.message }, 500);
+      if (scheduler) return respond({ error: 'Já existe um responsável comercial cadastrado para esta linha.' }, 409);
+    }
     if (role === 'Administrador' && !isPrimaryAdmin) return respond({ error: 'Somente o administrador principal pode criar ou promover administradores.' }, 403);
     if (email === primaryAdmin && role !== 'Administrador') return respond({ error: 'O administrador principal não pode perder seu perfil.' }, 400);
 
@@ -82,6 +88,7 @@ Deno.serve(async (request) => {
     const { error: roleError } = await admin.from('visits_user_roles').upsert({ email, role, line }, { onConflict: 'email' });
     if (roleError) {
       if (created && userId) await admin.auth.admin.deleteUser(userId);
+      if (roleError.code === '23505') return respond({ error: 'Já existe um responsável comercial cadastrado para esta linha.' }, 409);
       return respond({ error: roleError.message }, 500);
     }
     return respond({ email, role, line, updated: Boolean(existing) });
