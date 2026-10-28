@@ -10,12 +10,6 @@ const DEFAULT_SUPABASE = {
   KEY: 'sb_publishable_En3Z1O9De545ef8379n2hg_xQR_cimh'
 };
 
-const LINE_RESPONSIBLES = {
-  'Linha Leve': { commercial: 'Michel - Vendas - SP', factory: 'André - Fábrica' },
-  'Linha Intermediária': { commercial: 'Gustavo - Vendas - SP', factory: 'Pedro Mendes - Fábrica' },
-  'Linha Pesada': { commercial: 'Victor - Vendas - SP', factory: 'Leonardo e Ana - Fábrica' }
-};
-const lineResponsibles = (line) => LINE_RESPONSIBLES[line] || { commercial: '', factory: '' };
 const LINE_EDITOR_ROLES = {
   'Linha Leve': 'Editor',
   'Linha Intermediária': 'Editor',
@@ -88,7 +82,6 @@ function applyRole() {
   $('vLine').disabled = !!sb && ['Editor', 'Vendas'].includes(profile?.role);
   if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) {
     $('vLine').value = profile.line;
-    updateLineResponsibles();
   }
 }
 
@@ -277,8 +270,8 @@ function renderTable() {
       <td>${esc(v.company)}</td>
       <td>${esc(v.reason)}</td>
       <td>${esc(v.host)}</td>
-      <td>${esc(lineResponsibles(v.line).commercial || '—')}</td>
-      <td>${esc(lineResponsibles(v.line).factory || '—')}${v.factoryParticipants?.length ? `<br><small>Acompanham: ${esc(v.factoryParticipants.join(', '))}</small>` : ''}</td>
+      <td>${esc(v.commercialResponsible || '—')}</td>
+      <td>${esc(v.factoryResponsible || '—')}${v.factoryParticipants?.length ? `<br><small>Acompanham: ${esc(v.factoryParticipants.join(', '))}</small>` : ''}</td>
       <td>${esc(v.checkIn || '—')}</td>
       <td>${esc(v.checkOut || '—')}</td>
       <td>${badge(v.status)}</td>
@@ -313,10 +306,10 @@ function agendaItem(v) {
       ${agendaFact('Linha', v.line)}
       ${agendaFact('Material', [v.material, v.materialThickness].filter(Boolean).join(' · '))}
       ${agendaFact('Teste realizado por', 'Fábrica')}
-      ${agendaFact('Responsável da produção', lineResponsibles(v.line).factory || 'A definir')}
+      ${agendaFact('Responsável da produção', v.factoryResponsible || 'A definir')}
       ${v.factoryParticipants?.length ? agendaFact('Outros acompanhantes', v.factoryParticipants.join(', ')) : ''}
       ${testType(v) === 'Demonstração com cliente' ? agendaFact('Atendimento ao cliente', v.host || 'A definir') : ''}
-      ${agendaFact('Responsável comercial', lineResponsibles(v.line).commercial || 'A definir')}
+      ${agendaFact('Responsável comercial', v.commercialResponsible || 'A definir')}
       ${agendaFact('Status do teste', v.status)}
     </div>
     ${requestStatus(v) === 'Nova data sugerida' && v.suggestedDate && v.suggestedTime
@@ -456,29 +449,9 @@ function switchTab(tab) {
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
-function participantOptions(kind, line) {
-  const field = kind === 'sales' ? 'salesParticipants' : 'factoryParticipants';
-  return [...new Set(visits.filter((visit) => visit.line === line)
-    .flatMap((visit) => Array.isArray(visit[field]) ? visit[field] : []))]
-    .map((name) => String(name).trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-}
-
-function selectedParticipants(kind) {
-  const picker = $(`${kind}ParticipantPicker`);
-  try { return JSON.parse(picker.dataset.selected || '[]'); } catch { return []; }
-}
-
-function renderParticipantPicker(kind, selected = selectedParticipants(kind)) {
-  const picker = $(`${kind}ParticipantPicker`);
-  const names = [...new Set(selected.map((name) => String(name).trim()).filter(Boolean))];
-  picker.dataset.selected = JSON.stringify(names);
-  const knownNames = [...new Set([...participantOptions(kind, $('vLine').value), ...names])];
-  $(`${kind}ParticipantSelected`).innerHTML = names.length
-    ? names.map((name) => `<span class="participant-chip">${esc(name)}<button type="button" data-remove-participant="${kind}" data-name="${esc(name)}" aria-label="Remover ${esc(name)}">&times;</button></span>`).join('')
-    : '<span class="participant-empty">Ninguém selecionado</span>';
-  $(`${kind}ParticipantOptions`).innerHTML = knownNames.length
-    ? knownNames.map((name) => `<label class="participant-option"><input type="checkbox" data-participant-option="${kind}" value="${esc(name)}"${names.includes(name) ? ' checked' : ''}><span>${esc(name)}</span></label>`).join('')
-    : '<span class="participant-empty">Ainda não há nomes salvos nesta linha. Você pode adicionar um abaixo.</span>';
+function participantNames(value) {
+  const text = Array.isArray(value) ? value.join(', ') : String(value || '');
+  return [...new Set(text.split(',').map((name) => name.trim()).filter(Boolean))];
 }
 
 function openVisitModal(id) {
@@ -495,10 +468,11 @@ function openVisitModal(id) {
   $('vLine').value = v.line || '';
   if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) $('vLine').value = profile.line;
   $('vLine').disabled = !!sb && ['Editor', 'Vendas'].includes(profile?.role);
+  $('vCommercial').value = v.commercialResponsible || '';
+  $('vFactory').value = v.factoryResponsible || '';
   $('factoryParticipantsGroup').classList.toggle('hidden', profile?.role === 'Vendas');
-  renderParticipantPicker('sales', Array.isArray(v.salesParticipants) ? v.salesParticipants : []);
-  renderParticipantPicker('factory', Array.isArray(v.factoryParticipants) ? v.factoryParticipants : []);
-  updateLineResponsibles();
+  $('vSalesParticipants').value = participantNames(v.salesParticipants).join(', ');
+  $('vFactoryParticipants').value = participantNames(v.factoryParticipants).join(', ');
   $('vMachine').value = v.machineRequested || '';
   $('vMaterial').value = v.material || '';
   $('vThickness').value = v.materialThickness || '';
@@ -524,11 +498,6 @@ function updateTestTypeFields() {
   if (!isCustomerDemo) {
     ['vClient', 'vCompany', 'vPhone', 'vHost'].forEach((id) => { $(id).value = ''; });
   }
-}
-
-function updateLineResponsibles() {
-  renderParticipantPicker('sales');
-  renderParticipantPicker('factory');
 }
 
 async function extractVisitWithAi(sourceText, pdfFile, signal) {
@@ -571,7 +540,6 @@ function applyAiVisitFields(data) {
   for (const [id, value] of Object.entries(fields)) if (value) $(id).value = value;
   if (['Editor', 'Vendas'].includes(profile?.role) && profile.line) $('vLine').value = profile.line;
   else if (data.line && [...$('vLine').options].some((option) => option.value === data.line)) $('vLine').value = data.line;
-  updateLineResponsibles();
   if (data.reason && [...$('vReason').options].some((option) => option.value === data.reason)) $('vReason').value = data.reason;
 }
 
@@ -613,12 +581,12 @@ async function submitVisit(e) {
     company: $('vTestType').value === 'Interno' ? '' : $('vCompany').value.trim(),
     phone: $('vTestType').value === 'Interno' ? '' : $('vPhone').value.trim(),
     line: $('vLine').value,
-    commercialResponsible: LINE_RESPONSIBLES[$('vLine').value]?.commercial || '',
-    factoryResponsible: LINE_RESPONSIBLES[$('vLine').value]?.factory || '',
-    salesParticipants: selectedParticipants('sales'),
+    commercialResponsible: $('vCommercial').value.trim(),
+    factoryResponsible: $('vFactory').value.trim(),
+    salesParticipants: participantNames($('vSalesParticipants').value),
     factoryParticipants: profile?.role === 'Vendas' && prev
       ? (Array.isArray(prev.factoryParticipants) ? prev.factoryParticipants : [])
-      : selectedParticipants('factory'),
+      : participantNames($('vFactoryParticipants').value),
     machineRequested: $('vMachine').value.trim(),
     material: $('vMaterial').value.trim(),
     materialThickness: $('vThickness').value.trim(),
@@ -796,12 +764,7 @@ function exportCsv() {
   const head = ['Tipo de teste', 'Data', 'Hora', 'Cliente', 'Empresa', 'Contato', 'Linha', 'Máquina', 'Material', 'Espessura / dimensões', 'Objetivo', 'Quem atenderá o cliente', 'Solicitado por', 'Responsável comercial da linha', 'Responsável da produção da linha', 'Vendedores acompanhantes', 'Outros acompanhantes da produção', 'Aprovação fabril', 'Motivo da recusa', 'Observação da fábrica', 'Data sugerida', 'Horário sugerido', 'Etapa', 'Checklist de preparação', 'Pendências de preparação', 'Resultado do teste', 'Início', 'Conclusão', 'Observações'];
   // Prefixo ' evita injeção de fórmulas ao abrir no Excel.
   const cell = (x) => { let s = String(x ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
-  const rows = filtered().map((v) => cols.map((c) => {
-    const value = c === 'commercialResponsible' ? lineResponsibles(v.line).commercial
-      : c === 'factoryResponsible' ? lineResponsibles(v.line).factory
-        : v[c];
-    return cell(Array.isArray(value) ? value.join(', ') : value);
-  }).join(';'));
+  const rows = filtered().map((v) => cols.map((c) => cell(Array.isArray(v[c]) ? v[c].join(', ') : v[c])).join(';'));
   const blob = new Blob(['\ufeff' + [head.map(cell).join(';'), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -977,22 +940,6 @@ function bindEvents() {
   $('exportBtn').addEventListener('click', exportCsv);
   $('visitForm').addEventListener('submit', submitVisit);
   $('testWorkForm').addEventListener('submit', submitTestWork);
-  $('vLine').addEventListener('change', updateLineResponsibles);
-  document.querySelectorAll('[data-add-participant]').forEach((button) => button.addEventListener('click', () => {
-    const kind = button.dataset.addParticipant;
-    const input = $(`${kind}ParticipantNew`);
-    const name = input.value.trim();
-    if (!name) { input.focus(); return; }
-    renderParticipantPicker(kind, [...selectedParticipants(kind), name]);
-    input.value = '';
-    input.focus();
-  }));
-  ['sales', 'factory'].forEach((kind) => $(`${kind}ParticipantNew`).addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      $(`[data-add-participant="${kind}"]`).click();
-    }
-  }));
   $('reviewForm').addEventListener('submit', submitReview);
   $('reviewDecision').addEventListener('change', updateReviewFields);
   $('userForm').addEventListener('submit', submitUser);
@@ -1019,11 +966,6 @@ function bindEvents() {
     if (session) { await sb.auth.signOut(); toast('Sessão encerrada.'); } else openModal('authModal');
   });
   document.body.addEventListener('click', (e) => {
-    const removeParticipant = e.target.closest('[data-remove-participant]');
-    if (removeParticipant) {
-      const { name, removeParticipant: kind } = removeParticipant.dataset;
-      renderParticipantPicker(kind, selectedParticipants(kind).filter((selected) => selected !== name));
-    }
     const calendarDay = e.target.closest('[data-calendar-date]');
     if (calendarDay) {
       calendarSelectedDate = calendarDay.dataset.calendarDate;
@@ -1035,15 +977,6 @@ function bindEvents() {
     if (editUserBtn) openUserModal(editUserBtn.dataset.userEdit);
     const deleteUserBtn = e.target.closest('[data-user-delete]');
     if (deleteUserBtn) deleteManagedUser(deleteUserBtn.dataset.userDelete);
-  });
-  document.body.addEventListener('change', (event) => {
-    const checkbox = event.target.closest('[data-participant-option]');
-    if (!checkbox) return;
-    const kind = checkbox.dataset.participantOption;
-    const selected = selectedParticipants(kind);
-    renderParticipantPicker(kind, checkbox.checked
-      ? [...selected, checkbox.value]
-      : selected.filter((name) => name !== checkbox.value));
   });
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();

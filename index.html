@@ -251,21 +251,15 @@
             <option>Linha Pesada</option>
           </select>
         </div>
+        <div class="form-group"><label for="vCommercial">Responsável comercial deste teste</label><input id="vCommercial" class="input-delta" maxlength="120" placeholder="Digite o nome do responsável comercial"></div>
+        <div class="form-group"><label for="vFactory">Responsável da produção deste teste</label><input id="vFactory" class="input-delta" maxlength="120" placeholder="Digite o nome do responsável da produção"></div>
         <div class="form-group full">
           <label>Vendedores que acompanharão</label>
-          <div class="participant-picker" id="salesParticipantPicker" data-kind="sales">
-            <div class="participant-selected" id="salesParticipantSelected"></div>
-            <div class="participant-options" id="salesParticipantOptions" role="group" aria-label="Selecionar vendedores"></div>
-            <div class="participant-add"><input class="input-delta" id="salesParticipantNew" maxlength="120" placeholder="Adicionar outro vendedor"><button class="btn-delta btn-slate btn-sm" type="button" data-add-participant="sales">Adicionar</button></div>
-          </div>
+          <input id="vSalesParticipants" class="input-delta" maxlength="500" placeholder="Digite um ou mais nomes, separados por vírgula">
         </div>
         <div class="form-group full" id="factoryParticipantsGroup">
           <label>Equipe da produção que acompanhará</label>
-          <div class="participant-picker" id="factoryParticipantPicker" data-kind="factory">
-            <div class="participant-selected" id="factoryParticipantSelected"></div>
-            <div class="participant-options" id="factoryParticipantOptions" role="group" aria-label="Selecionar acompanhantes da produção"></div>
-            <div class="participant-add"><input class="input-delta" id="factoryParticipantNew" maxlength="120" placeholder="Adicionar outra pessoa da produção"><button class="btn-delta btn-slate btn-sm" type="button" data-add-participant="factory">Adicionar</button></div>
-          </div>
+          <input id="vFactoryParticipants" class="input-delta" maxlength="500" placeholder="Digite um ou mais nomes, separados por vírgula">
         </div>
         <div class="form-group"><label for="vMachine">Máquina do teste *</label><input id="vMachine" class="input-delta" required maxlength="160" placeholder="Ex.: Router CNC 1530"></div>
         <div class="form-group"><label for="vMaterial">Material *</label><input id="vMaterial" class="input-delta" required maxlength="160" placeholder="Ex.: MDF, acrílico, aço carbono"></div>

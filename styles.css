@@ -236,18 +236,6 @@ textarea.input-delta { resize: vertical; }
 .agenda-date { margin-top: .65rem !important; padding: .42rem .58rem; border-radius: 4px; background: rgba(148,163,184,.07); }
 .agenda-date strong { color: #f8fafc; font-weight: 800; }
 .agenda-item .agenda-note { margin-top: .4rem; padding-left: .1rem; }
-.participant-picker { display: grid; gap: .55rem; padding: .65rem; border: 1px solid var(--border); border-radius: 8px; background: rgba(7,12,22,.38); }
-.participant-selected { display: flex; flex-wrap: wrap; gap: .35rem; min-height: 1.65rem; }
-.participant-chip { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; padding: .18rem .35rem .18rem .55rem; border: 1px solid rgba(96,165,250,.28); border-radius: 4px; background: rgba(37,99,235,.14); color: #dbeafe; font-size: .75rem; font-weight: 700; overflow-wrap: anywhere; }
-.participant-chip button { flex: 0 0 auto; padding: 0 .1rem; border: 0; background: none; color: #bfdbfe; font-size: 1rem; line-height: 1; cursor: pointer; }
-.participant-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: .2rem .55rem; max-height: 132px; overflow-y: auto; padding: .35rem; border: 1px solid rgba(148,163,184,.12); border-radius: 5px; background: rgba(15,23,42,.5); }
-.participant-option { display: flex; align-items: center; gap: .45rem; min-width: 0; padding: .3rem; border-radius: 4px; color: #dbe4ef; font-size: .78rem; cursor: pointer; }
-.participant-option:hover { background: rgba(148,163,184,.08); }
-.participant-option input { flex: 0 0 auto; width: 15px; height: 15px; margin: 0; accent-color: #38bdf8; }
-.participant-option span { overflow-wrap: anywhere; }
-.participant-empty { align-self: center; color: var(--text-muted); font-size: .75rem; }
-.participant-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem; }
-.participant-add .input-delta { min-width: 0; }
 .schedule-comparison { margin-top: .45rem; padding: .5rem .7rem; border-left: 3px solid #60a5fa; background: rgba(96,165,250,.07); }
 .schedule-comparison p { color: var(--text-muted); }
 .schedule-comparison .schedule-original strong { color: var(--text); font-weight: 600; }

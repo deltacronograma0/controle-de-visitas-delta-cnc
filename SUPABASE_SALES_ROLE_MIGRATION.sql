@@ -3,21 +3,6 @@
 
 begin;
 
-create or replace function public.visits_line_responsibles(line_name text)
-returns jsonb
-language sql
-immutable
-set search_path = ''
-as $$
-  select case line_name
-    when 'Linha Leve' then jsonb_build_object('commercialResponsible', 'Michel - Vendas - SP', 'factoryResponsible', 'André - Fábrica')
-    when 'Linha Intermediária' then jsonb_build_object('commercialResponsible', 'Gustavo - Vendas - SP', 'factoryResponsible', 'Pedro Mendes - Fábrica')
-    when 'Linha Pesada' then jsonb_build_object('commercialResponsible', 'Victor - Vendas - SP', 'factoryResponsible', 'Leonardo e Ana - Fábrica')
-    else '{}'::jsonb
-  end;
-$$;
-revoke all on function public.visits_line_responsibles(text) from public, anon, authenticated;
-
 alter table public.visits_user_roles drop constraint if exists visits_user_roles_role_check;
 alter table public.visits_user_roles drop constraint if exists visits_editor_requires_line;
 alter table public.visits_user_roles add constraint visits_user_roles_role_check
@@ -87,7 +72,6 @@ declare
 begin
   if actor_email = '' then raise exception 'Autenticacao necessaria.'; end if;
 
-  new.data := new.data || public.visits_line_responsibles(new.data->>'line');
   if jsonb_typeof(coalesce(new.data->'salesParticipants', '[]'::jsonb)) is distinct from 'array'
     or jsonb_typeof(coalesce(new.data->'factoryParticipants', '[]'::jsonb)) is distinct from 'array' then
     raise exception 'Lista de acompanhantes invalida.';
@@ -305,11 +289,5 @@ begin
   raise exception 'Voce nao tem permissao para alterar este teste.';
 end;
 $$;
-
-alter table public.visits disable trigger visits_guard_change;
-update public.visits
-set data = data || public.visits_line_responsibles(data->>'line')
-where data->>'line' in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada');
-alter table public.visits enable trigger visits_guard_change;
 
 commit;

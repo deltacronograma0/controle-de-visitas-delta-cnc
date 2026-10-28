@@ -13,9 +13,9 @@ Aplicação interna da produção para organizar testes de máquina, tanto inter
 - Outro Editor responsável pela linha ou um Administrador aprova, recusa com motivo obrigatório ou sugere uma nova data/horário; o autor do pedido não aprova o próprio registro.
 - Após a aprovação, o responsável acompanha **Agendado → Preparação → Em andamento → Concluído**, registra checklist, pendências e resultado. O teste não pode ser concluído sem resultado.
 - A agenda mensal separa visualmente testes internos e demonstrações, e destaca os testes de hoje, em preparação e atrasados.
-- Cada linha tem um responsável comercial e um responsável fixo da produção. Os nomes são definidos pela linha e não podem ser alterados em um teste. Na Linha Pesada, Leonardo e Ana são co-responsáveis fixos da produção.
-- Cada linha tem uma única conta Vendas autorizada a agendar, correspondente ao responsável comercial fixo. O e-mail do solicitante fica registrado separadamente. Essa conta pode corrigir os próprios pedidos não aprovados; aprovação continua restrita ao Editor da linha ou Administrador.
-- Outros vendedores podem ser selecionados como acompanhantes, em uma lista separada dos acompanhantes da produção. Os dois campos permitem selecionar várias pessoas ou adicionar um nome novo; nomes salvos ficam disponíveis para reutilização na mesma linha. A lista não concede permissão para agendar.
+- Os nomes do responsável comercial e do responsável da produção são preenchidos manualmente em cada teste; selecionar uma linha não preenche nomes padrão. Na Linha Pesada, Leonardo e Ana podem ser escritos juntos como responsáveis da produção, se forem acompanhar.
+- Cada linha tem uma única conta Vendas autorizada a agendar. O e-mail do solicitante fica registrado separadamente dos nomes escritos no pedido. Essa conta pode corrigir os próprios pedidos não aprovados; aprovação continua restrita ao Editor da linha ou Administrador.
+- Outros vendedores podem ser escritos como acompanhantes, em um campo separado dos acompanhantes da produção. Ambos aceitam vários nomes separados por vírgula; informar um nome não concede permissão para agendar.
 - Um pedido pode registrar vários acompanhantes da produção; eles não substituem o responsável fixo da linha.
 - O Administrador cria, redefine e remove acessos de Editor e Vendas dentro do app, informando e-mail, linha e senha. Há no máximo uma conta Vendas por linha. A Edge Function cria o usuário no Supabase Auth com e-mail já confirmado, sem fluxo de confirmação Gmail.
 
@@ -28,7 +28,7 @@ Use um projeto Supabase exclusivo para o Controle de Visitas.
 1. O projeto dedicado já tem `public.visits`, `public.visits_user_roles`, RLS, trigger de validação e bucket privado temporário.
 2. Execute `SUPABASE_EDITOR_ROLE_MIGRATION.sql` após mudanças do modelo de papéis para converter perfis `Fábrica` antigos em `Editor`, preservando as linhas.
 3. Execute `SUPABASE_TEST_WORKFLOW_MIGRATION.sql` no SQL Editor do projeto para habilitar o tipo de teste e salvar checklist/resultado após a aprovação.
-4. Execute `SUPABASE_SALES_ROLE_MIGRATION.sql` no SQL Editor do projeto para habilitar uma conta Vendas agendadora por linha, fixar os responsáveis comerciais/fabris no banco e autorizar as listas de acompanhantes. Vendas não pode aprovar solicitações nem editar testes aprovados.
+4. Execute `SUPABASE_SALES_ROLE_MIGRATION.sql` no SQL Editor do projeto para habilitar uma conta Vendas agendadora por linha e autorizar as listas de acompanhantes. Os nomes dos responsáveis são digitados em cada teste; a migração não preenche nomes a partir da linha. Vendas não pode aprovar solicitações nem editar testes aprovados.
 5. Publique novamente as Edge Functions `visits-admin-users` e `visits-read-intake` após as alterações no código em `supabase/functions/`.
 6. Em **Edge Functions > Secrets**, mantenha `VISITS_PRIMARY_ADMIN_EMAIL` definido para o e-mail do administrador principal e `GEMINI_API_KEY` configurada. Nunca coloque segredos no navegador ou no GitHub. As variáveis internas do Supabase são fornecidas automaticamente pelas Edge Functions.
 7. Abra **Conectar Supabase** em cada dispositivo e informe Project URL e Publishable/anon key do projeto DELTA CNC - Controle de Visitas.
