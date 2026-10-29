@@ -517,7 +517,23 @@ async function extractVisitWithAi(sourceText, pdfFile, signal) {
   }
   try {
     const { data, error } = await sb.functions.invoke('visits-read-intake', { body, signal });
-    if (error) throw new Error(error.message || 'Não foi possível interpretar as informações.');
+    if (error) {
+      let detail = '';
+      const response = error.context;
+      if (response instanceof Response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const payload = await response.clone().json().catch(() => null);
+          detail = payload?.error || payload?.message || '';
+        }
+        if (!detail) detail = (await response.clone().text().catch(() => '')).trim();
+        if (detail.length > 500) detail = `${detail.slice(0, 500)}...`;
+        const status = response.status ? `HTTP ${response.status}: ` : '';
+        throw new Error(`${status}${detail || error.message || 'Não foi possível interpretar as informações.'}`);
+      }
+      throw new Error(error.message || 'Não foi possível interpretar as informações.');
+    }
+    if (!data?.fields) throw new Error('A função respondeu, mas não retornou os campos extraídos. Verifique se a Edge Function foi republicada.');
     return data.fields;
   } finally {
     if (body.pdfPath) await sb.storage.from('visits-ai-inbox').remove([body.pdfPath]).catch(() => {});
