@@ -37,12 +37,21 @@ Deno.serve(async (request) => {
   const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
   const token = authorization.replace(/^Bearer\s+/i, '');
   const { data: authData, error: authError } = await admin.auth.getUser(token);
-  const email = authData.user?.email?.toLowerCase();
+  const email = authData.user?.email?.trim().toLowerCase();
   if (authError || !email || authData.user?.is_anonymous) return respond({ error: 'Sessão inválida.' }, 401);
   const { data: profile, error: profileError } = await admin.from('visits_user_roles')
-    .select('role').eq('email', email).maybeSingle();
-  if (profileError || !['Editor', 'Administrador', 'Vendas'].includes(profile?.role || '')) {
-    return respond({ error: 'Apenas usuários autorizados de Vendas ou produção podem usar esta função.' }, 403);
+    .select('role').ilike('email', email).maybeSingle();
+  console.log('visits-read-intake profile check', { profileFound: Boolean(profile), role: profile?.role || null, profileError: Boolean(profileError) });
+  if (profileError) {
+    console.error('visits-read-intake profile lookup failed', profileError);
+    return respond({ error: 'Não foi possível verificar o perfil da conta no Controle de Visitas.' }, 500);
+  }
+  if (!profile) {
+    return respond({ error: 'Esta conta autenticada não possui perfil cadastrado em Acessos no Controle de Visitas.' }, 403);
+  }
+  const role = String(profile.role || '').trim().toLocaleLowerCase('pt-BR');
+  if (!['editor', 'administrador', 'vendas'].includes(role)) {
+    return respond({ error: 'O perfil cadastrado para esta conta não está autorizado a usar a leitura por IA.' }, 403);
   }
 
   let body: { text?: string; pdfPath?: string; referenceDate?: string };

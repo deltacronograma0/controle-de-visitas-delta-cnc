@@ -11,6 +11,7 @@ alter table public.visits_user_roles add constraint visits_editor_requires_line 
   (role in ('Editor', 'Vendas') and line in ('Linha Leve', 'Linha Intermediária', 'Linha Pesada'))
   or (role = 'Administrador' and line is null)
 );
+grant select on public.visits_user_roles to service_role;
 do $$
 begin
   if exists (
