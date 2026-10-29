@@ -24,6 +24,31 @@ const fieldsSchema = {
   required: ['client', 'company', 'phone', 'line', 'machineRequested', 'material', 'materialThickness', 'host', 'factoryResponsible', 'factoryParticipants', 'commercialResponsible', 'salesParticipants', 'date', 'time', 'reason', 'notes']
 };
 
+function parseGeminiJson(rawText: string) {
+  const withoutFence = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const objectStart = withoutFence.indexOf('{');
+  const objectEnd = withoutFence.lastIndexOf('}');
+  if (objectStart < 0 || objectEnd < objectStart) throw new Error('Gemini não retornou um objeto JSON completo.');
+
+  const source = withoutFence.slice(objectStart, objectEnd + 1);
+  let normalized = '';
+  let insideString = false;
+  let escaped = false;
+  for (const character of source) {
+    if (insideString && !escaped && character === '"') insideString = false;
+    else if (!insideString && character === '"') insideString = true;
+
+    if (insideString && !escaped && character === '\n') normalized += '\\n';
+    else if (insideString && !escaped && character === '\r') normalized += '\\r';
+    else if (insideString && !escaped && character === '\t') normalized += '\\t';
+    else normalized += character;
+
+    if (insideString && character === '\\' && !escaped) escaped = true;
+    else escaped = false;
+  }
+  return JSON.parse(normalized);
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return respond({ error: 'Method not allowed' }, 405);
@@ -110,7 +135,17 @@ Deno.serve(async (request) => {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) return respond({ error: result.error?.message || `Gemini retornou ${response.status}.` }, 502);
     const raw = result.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || '').join('') || '';
-    const parsed = JSON.parse(raw);
+    let parsed;
+    try {
+      parsed = parseGeminiJson(raw);
+    } catch (error) {
+      console.error('visits-read-intake invalid Gemini JSON', {
+        reason: error instanceof Error ? error.message : 'JSON inválido',
+        outputLength: raw.length,
+        finishReason: result.candidates?.[0]?.finishReason || 'unknown'
+      });
+      return respond({ error: 'O Gemini respondeu em um formato inválido. Tente novamente ou use o cadastro manual.' }, 502);
+    }
     const fields = {
       client: String(parsed.client || '').slice(0, 120), company: String(parsed.company || '').slice(0, 120),
       phone: String(parsed.phone || '').slice(0, 120), line: allowedLines.includes(parsed.line) ? parsed.line : '',
