@@ -15,7 +15,7 @@ const fieldsSchema = {
   type: 'OBJECT',
   properties: {
     client: { type: 'STRING' }, company: { type: 'STRING' }, phone: { type: 'STRING' },
-    line: { type: 'STRING', enum: [...allowedLines, ''] }, machineRequested: { type: 'STRING' },
+    line: { type: 'STRING', enum: allowedLines }, machineRequested: { type: 'STRING' },
     material: { type: 'STRING' }, materialThickness: { type: 'STRING' }, host: { type: 'STRING' },
     commercialResponsible: { type: 'STRING' }, salesParticipants: { type: 'STRING' },
     date: { type: 'STRING' }, time: { type: 'STRING' }, reason: { type: 'STRING', enum: allowedReasons }, notes: { type: 'STRING' }
