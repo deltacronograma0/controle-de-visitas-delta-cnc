@@ -470,6 +470,8 @@ function openVisitModal(id) {
   $('vLine').disabled = !!sb && ['Editor', 'Vendas'].includes(profile?.role);
   $('vCommercial').value = v.commercialResponsible || '';
   $('vFactory').value = v.factoryResponsible || '';
+  $('visitAiStatus').textContent = '';
+  document.querySelectorAll('#visitForm .ai-missing-field').forEach((field) => field.classList.remove('ai-missing-field'));
   $('factoryParticipantsGroup').classList.toggle('hidden', profile?.role === 'Vendas');
   $('vSalesParticipants').value = participantNames(v.salesParticipants).join(', ');
   $('vFactoryParticipants').value = participantNames(v.factoryParticipants).join(', ');
@@ -504,7 +506,7 @@ async function extractVisitWithAi(sourceText, pdfFile, signal) {
   if (!sb || !session || !profile || !['Administrador', 'Vendas'].includes(profile.role)) {
     throw new Error('Entre com a conta Vendas responsável pela linha ou com um Administrador para usar a IA.');
   }
-  const body = { text: sourceText };
+  const body = { text: sourceText, referenceDate: todayStr() };
   if (pdfFile) {
     if (!sb.storage) throw new Error('Supabase Storage não está disponível.');
     const path = `ai-imports/${profile.email}/${uid()}.pdf`;
@@ -529,6 +531,8 @@ function applyAiVisitFields(data) {
     vClient: data.client,
     vCompany: data.company,
     vPhone: data.phone,
+    vCommercial: data.commercialResponsible,
+    vSalesParticipants: data.salesParticipants,
     vMachine: data.machineRequested,
     vMaterial: data.material,
     vThickness: data.materialThickness,
@@ -559,7 +563,19 @@ async function processAiSource() {
     closeModal('aiImportModal');
     openVisitModal();
     applyAiVisitFields(fields);
-    toast('Confira e complete os dados antes de salvar.');
+    const missingFields = [];
+    if (!fields.line) missingFields.push('linha');
+    if (!fields.company) missingFields.push('empresa do cliente');
+    if (!fields.host) missingFields.push('quem receberá o cliente');
+    if (!fields.date) missingFields.push('data');
+    if (!fields.time) missingFields.push('horário');
+    const requiredIds = { line: 'vLine', company: 'vCompany', host: 'vHost', date: 'vDate', time: 'vTime' };
+    for (const [field, id] of Object.entries(requiredIds)) {
+      if (!fields[field]) $(id).classList.add('ai-missing-field');
+    }
+    $('visitAiStatus').textContent = missingFields.length
+      ? `A IA preencheu os dados encontrados. Complete os campos destacados: ${missingFields.join(', ')}.`
+      : 'A IA preencheu os dados encontrados. Confira tudo antes de enviar.';
   } catch (error) {
     $('aiImportStatus').textContent = error.name === 'AbortError' ? 'Leitura cancelada.' : (error.message || 'Falha ao interpretar as informações.');
   } finally {
@@ -929,6 +945,7 @@ function bindEvents() {
   });
   $('newVisitBtn').addEventListener('click', () => openVisitModal());
   $('vTestType').addEventListener('change', updateTestTypeFields);
+  ['vLine', 'vCompany', 'vHost', 'vDate', 'vTime'].forEach((id) => $(id).addEventListener('input', () => $(id).classList.remove('ai-missing-field')));
   $('openAiImportBtn').addEventListener('click', () => {
     $('aiImportStatus').textContent = '';
     openModal('aiImportModal');

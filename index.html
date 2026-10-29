@@ -236,7 +236,8 @@
   <div id="visitModal" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <form class="modal" id="visitForm">
       <h2 id="visitModalTitle">Agendar teste</h2>
-      <p class="hint">Os responsáveis da linha são fixos. Escolha o tipo do teste e informe quem mais acompanhará pela produção, se necessário.</p>
+      <p class="hint">Escreva os responsáveis e acompanhantes deste teste. A linha não preenche nomes automaticamente.</p>
+      <p id="visitAiStatus" class="form-error ai-import-result" role="status" aria-live="polite"></p>
       <div class="form-grid">
         <div class="form-group"><label for="vTestType">Tipo de teste *</label><select id="vTestType" class="input-delta" required><option value="Interno">Interno, sem cliente</option><option value="Demonstração com cliente">Demonstração com cliente</option></select></div>
         <div class="form-group customer-field hidden"><label for="vClient">Nome do cliente *</label><input id="vClient" class="input-delta" maxlength="120"></div>
