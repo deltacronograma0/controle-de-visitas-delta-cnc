@@ -5,9 +5,11 @@ Aplicação interna da produção para organizar testes de máquina, tanto inter
 ## Fluxo interno
 
 - Cada teste é classificado como **Interno, sem cliente** ou **Demonstração com cliente**. Os dados do cliente só são obrigatórios para demonstrações.
-- Em demonstrações, o pedido exige a pessoa que atenderá o cliente; os responsáveis comerciais e da produção são preenchidos automaticamente pela linha e não podem ser alterados no teste.
+- Em demonstrações, o pedido exige a pessoa que atenderá o cliente. O responsável comercial e o responsável da produção são escritos manualmente para cada teste; selecionar a linha não preenche nomes.
 - Usuários de Vendas vinculados à linha podem abrir pedidos e corrigir os próprios pedidos enquanto não forem aprovados. O e-mail do solicitante fica registrado separadamente do responsável comercial fixo.
-- O responsável comercial da linha ou o Administrador abre **Preencher com IA**, cola a mensagem recebida ou seleciona um PDF.
+- Há dois caminhos para criar o mesmo pedido: preencher **Agendar teste** diretamente no app ou usar **Preencher com IA** com texto/PDF e revisar os dados extraídos antes de enviar. Nenhum caminho substitui o outro.
+- Enquanto os vendedores ainda não têm acesso liberado, o Administrador pode receber o modelo PDF preenchido, importar o arquivo em **Preencher com IA**, completar os campos que faltarem e encaminhar o pedido.
+- Quando o acesso dos vendedores for liberado, o Administrador cria a conta Vendas vinculada à linha em **Acessos**. O vendedor então poderá usar **Agendar teste** para preencher diretamente ou continuar usando texto/PDF com IA.
 - O Gemini sugere os campos de cliente, linha, máquina, material, espessura/dimensões, data, horário e observações.
 - O responsável comercial revisa e corrige os campos no formulário antes de encaminhar para validação fabril.
 - Outro Editor responsável pela linha ou um Administrador aprova, recusa com motivo obrigatório ou sugere uma nova data/horário; o autor do pedido não aprova o próprio registro.
@@ -28,11 +30,11 @@ Use um projeto Supabase exclusivo para o Controle de Visitas.
 1. O projeto dedicado já tem `public.visits`, `public.visits_user_roles`, RLS, trigger de validação e bucket privado temporário.
 2. Execute `SUPABASE_EDITOR_ROLE_MIGRATION.sql` após mudanças do modelo de papéis para converter perfis `Fábrica` antigos em `Editor`, preservando as linhas.
 3. Execute `SUPABASE_TEST_WORKFLOW_MIGRATION.sql` no SQL Editor do projeto para habilitar o tipo de teste e salvar checklist/resultado após a aprovação.
-4. Execute `SUPABASE_SALES_ROLE_MIGRATION.sql` no SQL Editor do projeto para habilitar uma conta Vendas agendadora por linha e autorizar as listas de acompanhantes. Os nomes dos responsáveis são digitados em cada teste; a migração não preenche nomes a partir da linha. Vendas não pode aprovar solicitações nem editar testes aprovados.
+4. Execute `SUPABASE_SALES_ROLE_MIGRATION.sql` no SQL Editor do projeto para habilitar uma conta Vendas agendadora por linha, autorizar a consulta de perfil pela Edge Function (`service_role`) e habilitar as listas de acompanhantes. Os nomes dos responsáveis são digitados em cada teste; a migração não preenche nomes a partir da linha. Vendas não pode aprovar solicitações nem editar testes aprovados.
 5. Publique novamente as Edge Functions `visits-admin-users` e `visits-read-intake` após as alterações no código em `supabase/functions/`.
 6. Em **Edge Functions > Secrets**, mantenha `VISITS_PRIMARY_ADMIN_EMAIL` definido para o e-mail do administrador principal e `GEMINI_API_KEY` configurada. Nunca coloque segredos no navegador ou no GitHub. As variáveis internas do Supabase são fornecidas automaticamente pelas Edge Functions.
 7. Abra **Conectar Supabase** em cada dispositivo e informe Project URL e Publishable/anon key do projeto DELTA CNC - Controle de Visitas.
-8. Em **Acessos**, o Administrador cria a conta Vendas responsável e as contas Editor com e-mail, senha e linha. Registre os demais vendedores como acompanhantes do teste.
+8. Em **Acessos**, quando autorizado, o Administrador cria a conta Vendas responsável e as contas Editor com e-mail, senha e linha. Até lá, o Administrador pode inserir pedidos a partir do PDF preenchido pelos vendedores.
 
 As visitas legadas sem `testType` continuam sendo tratadas como demonstrações com cliente. Os arquivos `.ics` oferecem alertas quando importados manualmente; o app ainda não envia notificações automáticas quando fechado. O projeto Controle de Produção e seu repositório permanecem separados e não são alterados por este app.
 
